@@ -258,7 +258,6 @@ public class AutoMetricTest
   }
 
   @Test
-  @Ignore
   public void testMetricsAggregations() throws Exception
   {
     CountDownLatch latch = new CountDownLatch(2);
@@ -321,7 +320,9 @@ public class AutoMetricTest
     {
       long sum = 0;
       int myMetricSum = 0;
+      LOG.debug("windows ID {}", windowId);
       for (AutoMetric.PhysicalMetricsContext physicalMetricsContext : physicalMetrics) {
+        LOG.debug("{} {}", physicalMetricsContext, physicalMetricsContext.getMetrics());
         sum += (Integer) physicalMetricsContext.getMetrics().get("progress");
         if (physicalMetricsContext.getMetrics().containsKey("myMetric")) {
           myMetricSum += (Integer) physicalMetricsContext.getMetrics().get("myMetric");
@@ -330,6 +331,7 @@ public class AutoMetricTest
       cachedSum = sum;
       result.put("progress", cachedSum);
       result.put("myMetric", myMetricSum);
+      LOG.debug("result.progress {}, latch {}", result.get("progress"), latch.getCount());
       latch.countDown();
       return result;
     }
