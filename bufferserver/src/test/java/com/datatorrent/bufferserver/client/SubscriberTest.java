@@ -217,6 +217,7 @@ public class SubscriberTest
 
     eventloopClient.disconnect(bsp2);
     eventloopClient.disconnect(bss2);
+    logger.debug("bss2 window id {}, tuple count {}", bss2.lastPayload.getWindowId(), bss2.tupleCount.get());
 
     assertTrue((bss2.lastPayload.getWindowId() - 8) * 3 <= bss2.tupleCount.get());
   }

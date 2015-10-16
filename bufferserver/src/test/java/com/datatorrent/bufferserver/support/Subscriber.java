@@ -57,6 +57,7 @@ public class Subscriber extends com.datatorrent.bufferserver.client.Subscriber
   {
     Tuple tuple = Tuple.getTuple(buffer, offset, size);
     tupleCount.incrementAndGet();
+    logger.debug("On Message: Tuple {}, count {}", tuple, tupleCount.get());
     switch (tuple.getType()) {
       case BEGIN_WINDOW:
         beginWindow(tuple.getWindowId());

@@ -35,7 +35,6 @@
 
   <build>
     <plugins>
-      <!--
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <dependencies>
@@ -46,7 +45,6 @@
           </dependency>
         </dependencies>
       </plugin>
-      -->
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
