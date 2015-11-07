@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datatorrent.bufferserver.internal.DataList.DataListIterator;
+import com.datatorrent.bufferserver.netlet.AbstractLengthPrependerClient;
 import com.datatorrent.bufferserver.packet.MessageType;
 import com.datatorrent.bufferserver.packet.Tuple;
 import com.datatorrent.bufferserver.policy.GiveAll;
@@ -33,7 +34,6 @@ import com.datatorrent.bufferserver.policy.Policy;
 import com.datatorrent.bufferserver.util.BitVector;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.bufferserver.util.SerializedData;
-import com.datatorrent.netlet.AbstractLengthPrependerClient;
 import com.datatorrent.netlet.EventLoop;
 
 /**

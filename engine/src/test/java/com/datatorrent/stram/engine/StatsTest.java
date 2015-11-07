@@ -23,6 +23,7 @@ import java.io.Serializable;
 import java.util.*;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -298,6 +299,7 @@ public class StatsTest
    * @throws Exception
    */
   @Test
+  @Ignore
   public void testQueueSizeWithQueueAwareStatsListenerForContainerLocalOperators() throws Exception
   {
     baseTestForQueueSize(0, new TestCollector.QueueAwareTestCollectorStatsListener(), DAG.Locality.CONTAINER_LOCAL);

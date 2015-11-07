@@ -23,20 +23,20 @@ package com.datatorrent.stram.engine;
  *
  * @since 0.3.2
  */
-public interface Reservoir
+public interface Reservoir<T>
 {
   /**
    * the count of elements in this SweepableReservoir.
    *
    * @return the count
    */
-  public int size();
+  int size();
 
   /**
    * Remove an element from the reservoir.
    *
    * @return the removed element.
    */
-  public Object remove();
+  T remove();
 
 }
