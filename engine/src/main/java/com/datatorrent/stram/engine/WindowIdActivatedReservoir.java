@@ -56,6 +56,12 @@ public class WindowIdActivatedReservoir implements SweepableReservoir
   }
 
   @Override
+  public boolean isEmpty()
+  {
+    return reservoir.isEmpty();
+  }
+
+  @Override
   public Object remove()
   {
     if (est == null) {

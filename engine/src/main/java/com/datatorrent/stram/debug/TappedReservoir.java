@@ -70,6 +70,12 @@ public class TappedReservoir extends MuxSink implements SweepableReservoir
   }
 
   @Override
+  public boolean isEmpty()
+  {
+    return reservoir.isEmpty();
+  }
+
+  @Override
   public void put(Object tuple)
   {
     super.put(tuple);

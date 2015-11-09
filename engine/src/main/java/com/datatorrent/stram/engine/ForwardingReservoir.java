@@ -75,6 +75,12 @@ public class ForwardingReservoir implements SweepableReservoir
   }
 
   @Override
+  public boolean isEmpty()
+  {
+    return reservoir.isEmpty();
+  }
+
+  @Override
   public Object remove()
   {
     return reservoir.remove();

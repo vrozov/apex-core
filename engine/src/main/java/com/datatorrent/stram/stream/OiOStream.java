@@ -113,6 +113,12 @@ public class OiOStream implements Stream, SweepableReservoir
   }
 
   @Override
+  public boolean isEmpty()
+  {
+    return false;
+  }
+
+  @Override
   public Object remove()
   {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.

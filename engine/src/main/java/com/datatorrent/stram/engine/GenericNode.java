@@ -508,8 +508,8 @@ public class GenericNode extends Node<Operator>
         else {
           boolean need2sleep = true;
           for (SweepableReservoir cb : activeQueues) {
-            if (cb.size() > 0) {
-              need2sleep = false;
+            need2sleep = cb.isEmpty();
+            if (!need2sleep) {
               break;
             }
           }

@@ -39,4 +39,9 @@ public interface Reservoir<T>
    */
   T remove();
 
+  /**
+   * @return true if reservoir is empty, false otherwise
+   */
+  boolean isEmpty();
+
 }

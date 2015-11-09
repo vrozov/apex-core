@@ -55,6 +55,12 @@ public class SpscSweepableReservoir extends AbstractReservoir
   }
 
   @Override
+  public boolean isEmpty()
+  {
+    return queue.peek() == null;
+  }
+
+  @Override
   public Object remove()
   {
     return queue.poll();
