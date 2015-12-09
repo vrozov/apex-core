@@ -45,22 +45,11 @@ public class FastSubscriber extends BufferServerSubscriber
   {
     InetSocketAddress address = context.getBufferServerAddress();
     eventloop = context.get(StreamContext.EVENT_LOOP);
-    eventloop.connect(address.isUnresolved() ? new InetSocketAddress(address.getHostName(), address.getPort()) : address, this);
-
     logger.debug("registering subscriber: id={} upstreamId={} streamLogicalName={} windowId={} mask={} partitions={} server={}", new Object[] {context.getSinkId(), context.getSourceId(), context.getId(), context.getFinishedWindowId(), context.getPartitionMask(), context.getPartitions(), context.getBufferServerAddress()});
-    activate(Tuple.FAST_VERSION, context.getId() + '/' + context.getSinkId(), context.getSourceId(), context.getPartitionMask(), context.getPartitions(), context.getFinishedWindowId(), freeFragments.capacity());
+    activate(connect(eventloop, address), Tuple.FAST_VERSION, context.getId() + '/' + context.getSinkId(), context
+        .getSourceId(), context.getPartitionMask(), context.getPartitions(), context.getFinishedWindowId(), freeFragments.capacity());
   }
 
-  @Override
-  public int readSize()
-  {
-    if (writeOffset - readOffset < 2) {
-      return -1;
-    }
-
-    short s = buffer[readOffset++];
-    return s | (buffer[readOffset++] << 8);
-  }
 
   private static final Logger logger = LoggerFactory.getLogger(FastSubscriber.class);
 }

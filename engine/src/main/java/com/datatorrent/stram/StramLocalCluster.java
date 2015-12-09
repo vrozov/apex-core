@@ -59,6 +59,9 @@ import com.datatorrent.stram.plan.logical.LogicalPlan;
 import com.datatorrent.stram.plan.logical.LogicalPlan.OperatorMeta;
 import com.datatorrent.stram.plan.physical.PTOperator;
 
+import io.netty.channel.Channel;
+import io.netty.channel.nio.NioEventLoopGroup;
+
 /**
  * Launcher for topologies in local mode within a single process.
  * Child containers are mapped to threads.
@@ -75,6 +78,7 @@ public class StramLocalCluster implements Runnable, Controller
   private InetSocketAddress bufferServerAddress;
   private boolean perContainerBufferServer;
   private Server bufferServer = null;
+  private Channel channel;
   private final Map<String, LocalStreamingContainer> childContainers = new ConcurrentHashMap<String, LocalStreamingContainer>();
   private int containerSeq = 0;
   private boolean appDone = false;
@@ -309,10 +313,11 @@ public class StramLocalCluster implements Runnable, Controller
     this.umbilical = new UmbilicalProtocolLocalImpl();
 
     if (!perContainerBufferServer) {
-      StreamingContainer.eventloop.start();
+      StreamingContainer.eventloop = new NioEventLoopGroup(1);
       bufferServer = new Server(0, 1024 * 1024,8);
       bufferServer.setSpoolStorage(new DiskStorage());
-      SocketAddress bindAddr = bufferServer.run(StreamingContainer.eventloop);
+      channel = bufferServer.run(StreamingContainer.eventloop);
+      SocketAddress bindAddr = channel.localAddress();
       this.bufferServerAddress = ((InetSocketAddress)bindAddr);
       LOG.info("Buffer server started: {}", bufferServerAddress);
     }
@@ -498,8 +503,17 @@ public class StramLocalCluster implements Runnable, Controller
 
     LOG.info("Application finished.");
     if (!perContainerBufferServer) {
-      StreamingContainer.eventloop.stop(bufferServer);
-      StreamingContainer.eventloop.stop();
+      try {
+        channel.close().sync();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        try {
+          StreamingContainer.eventloop.shutdownGracefully().sync();
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
     }
   }
 

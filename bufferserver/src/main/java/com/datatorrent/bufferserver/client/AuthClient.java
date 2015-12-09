@@ -18,58 +18,89 @@
  */
 package com.datatorrent.bufferserver.client;
 
-import java.security.AccessControlException;
+import java.net.SocketAddress;
 
-import com.datatorrent.netlet.AbstractLengthPrependerClient;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
+import io.netty.handler.codec.bytes.ByteArrayDecoder;
+import io.netty.handler.codec.bytes.ByteArrayEncoder;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
 /**
  * <p>Auth Client class.</p>
  *
  * @since 3.0.0
  */
-public abstract class AuthClient extends AbstractLengthPrependerClient
+public abstract class AuthClient extends ChannelHandlerAdapter
 {
+  private Channel channel;
   private byte[] token;
 
   public AuthClient()
   {
   }
 
-  public AuthClient(int readBufferSize, int sendBufferSize)
-  {
-    super(readBufferSize, sendBufferSize);
+  public ChannelFuture connect(EventLoopGroup eventLoopGroup, SocketAddress remoteAddress) {
+    Bootstrap bootstrap = new Bootstrap();
+    bootstrap.group(eventLoopGroup)
+        .channel(NioSocketChannel.class)
+        .handler(
+            new ChannelInitializer<SocketChannel>()
+            {
+              @Override
+              public void initChannel(SocketChannel ch) throws Exception
+              {
+                final ChannelPipeline pipeline = ch.pipeline();
+                pipeline.addLast("Logger", new LoggingHandler(LogLevel.TRACE));
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("bytesDecoder", new ByteArrayDecoder());
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("bytesEncoder", new ByteArrayEncoder());
+                pipeline.addLast(AuthClient.this);
+              }
+            }
+        );
+    return bootstrap.connect(remoteAddress);
   }
 
-  public AuthClient(byte[] readbuffer, int position, int sendBufferSize)
+  public void activate(ChannelFuture channelFuture)
   {
-    super(readbuffer, position, sendBufferSize);
-  }
-
-  protected void sendAuthenticate()
-  {
-    if (token != null) {
-      write(token);
+    try {
+      channel = channelFuture.channel();
+      channelFuture.sync();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
 
-  protected void authenticateMessage(byte[] buffer, int offset, int size)
-  {
-    if (token != null) {
-      boolean authenticated = false;
-      if (size == token.length) {
-        int match = 0;
-        while ((match < token.length) && (buffer[offset + match] == token[match])) {
-          ++match;
-        }
-        if (match == token.length) {
-          authenticated = true;
-        }
-      }
-      if (!authenticated) {
-        throw new AccessControlException("Buffer server security is enabled." +
-            " Access is restricted without proper credentials.");
-      }
-    }
+  public ChannelFuture write(byte[] msg) {
+    return channel.write(msg, channel.voidPromise());
+  }
+
+  public ChannelFuture disconnect() {
+    return channel.disconnect();
+  }
+
+  public void flush() {
+    channel.flush();
+  }
+
+  public void suspendRead() {
+    channel.config().setAutoRead(false);
+  }
+
+  public void resumeRead() {
+    channel.config().setAutoRead(true);
   }
 
   public void setToken(byte[] token)

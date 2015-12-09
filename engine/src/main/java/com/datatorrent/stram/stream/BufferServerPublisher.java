@@ -36,6 +36,9 @@ import com.datatorrent.stram.engine.ByteCounterStream;
 import com.datatorrent.stram.engine.StreamContext;
 import com.datatorrent.stram.tuple.Tuple;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.EventLoopGroup;
+
 import static java.lang.Thread.sleep;
 
 /**
@@ -52,7 +55,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
 {
   private StreamCodec<Object> serde;
   private final AtomicLong publishedByteCount;
-  private EventLoop eventloop;
+  private EventLoopGroup eventloop;
   private int count;
   private StatefulStreamCodec<Object> statefulSerde;
 
@@ -116,6 +119,8 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
          */
         if (dsp.state != null) {
           array = DataTuple.getSerializedTuple(MessageType.CODEC_STATE_VALUE, dsp.state);
+          write(array);
+          /*
           try {
             while (!write(array)) {
               sleep(5);
@@ -123,6 +128,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
           } catch (InterruptedException ie) {
             throw new RuntimeException(ie);
           }
+          */
         }
         /*
          * Now that the state if any has been sent, we can proceed with the actual data we want to send.
@@ -131,15 +137,18 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
       }
     }
 
+    write(array);
+    publishedByteCount.addAndGet(array.length);
+    /*
     try {
       while (!write(array)) {
         sleep(5);
       }
-      publishedByteCount.addAndGet(array.length);
     }
     catch (InterruptedException ie) {
       throw new RuntimeException(ie);
     }
+    */
   }
 
   /**
@@ -151,23 +160,20 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   public void activate(StreamContext context)
   {
     setToken(context.get(StreamContext.BUFFER_SERVER_TOKEN));
-    InetSocketAddress address = context.getBufferServerAddress();
     eventloop = context.get(StreamContext.EVENT_LOOP);
-    eventloop.connect(address.isUnresolved() ? new InetSocketAddress(address.getHostName(), address.getPort()) : address, this);
-
     logger.debug("Registering publisher: {} {} windowId={} server={}", new Object[] {context.getSourceId(), context.getId(), Codec.getStringWindowId(context.getFinishedWindowId()), context.getBufferServerAddress()});
-    super.activate(null, context.getFinishedWindowId());
+    super.activate(connect(eventloop, context.getBufferServerAddress()), null, context.getFinishedWindowId());
   }
 
   @Override
   public void deactivate()
   {
     setToken(null);
-    eventloop.disconnect(this);
+    disconnect();
   }
 
   @Override
-  public void onMessage(byte[] buffer, int offset, int size)
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
   {
     throw new RuntimeException("OutputStream is not supposed to receive anything!");
   }

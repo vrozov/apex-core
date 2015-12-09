@@ -61,6 +61,8 @@ import com.datatorrent.stram.plan.logical.LogicalPlanConfiguration;
 import com.datatorrent.stram.support.StramTestSupport;
 import com.datatorrent.stram.webapp.StramWebServices;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static java.lang.Thread.sleep;
 import static org.junit.Assert.assertEquals;
 
@@ -81,13 +83,13 @@ public class StramMiniClusterTest
   @Before
   public void setupEachTime() throws IOException
   {
-    StreamingContainer.eventloop.start();
+    StreamingContainer.eventloop = new NioEventLoopGroup(1);
   }
 
   @After
   public void teardown()
   {
-    StreamingContainer.eventloop.stop();
+    StreamingContainer.eventloop.shutdownGracefully();
   }
 
   @BeforeClass

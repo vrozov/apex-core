@@ -87,6 +87,8 @@ import com.datatorrent.stram.security.StramWSFilterInitializer;
 import com.datatorrent.stram.webapp.AppInfo;
 import com.datatorrent.stram.webapp.StramWebApp;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static java.lang.Thread.sleep;
 
 /**
@@ -606,11 +608,11 @@ public class StreamingAppMasterService extends CompositeService
   {
     boolean status = true;
     try {
-      StreamingContainer.eventloop.start();
+      StreamingContainer.eventloop = new NioEventLoopGroup(1);
       execute();
     }
     finally {
-      StreamingContainer.eventloop.stop();
+      StreamingContainer.eventloop.shutdownGracefully();
     }
     return status;
   }

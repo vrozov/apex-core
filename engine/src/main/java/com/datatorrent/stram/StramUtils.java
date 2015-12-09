@@ -80,7 +80,7 @@ public abstract class StramUtils
           }
         }
       }
-      DTLoggerFactory.getInstance().initialize();
+      //DTLoggerFactory.getInstance().initialize();
     }
   }
 

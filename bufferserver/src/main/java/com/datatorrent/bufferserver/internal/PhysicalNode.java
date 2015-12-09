@@ -19,11 +19,15 @@
 package com.datatorrent.bufferserver.internal;
 
 
+import java.util.Arrays;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datatorrent.bufferserver.util.SerializedData;
-import com.datatorrent.netlet.AbstractLengthPrependerClient;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 
 /**
  * PhysicalNode represents one physical subscriber.
@@ -34,16 +38,16 @@ public class PhysicalNode
 {
   public static final int BUFFER_SIZE = 8 * 1024;
   private final long starttime;
-  private final AbstractLengthPrependerClient client;
+  private final Channel channel;
   private final long processedMessageCount;
 
   /**
    *
    * @param client
    */
-  public PhysicalNode(AbstractLengthPrependerClient client)
+  public PhysicalNode(Channel channel)
   {
-    this.client = client;
+    this.channel = channel;
     starttime = System.currentTimeMillis();
     processedMessageCount = 0;
   }
@@ -75,18 +79,12 @@ public class PhysicalNode
 
   public boolean send(SerializedData d)
   {
-    if (d.offset == d.dataOffset) {
-      if (client.write(d.buffer, d.offset, d.length)) {
-        return true;
-      }
-    } else {
-      if (client.send(d.buffer, d.offset, d.length)) {
-        return true;
-      }
-    }
-
-    blocker = d;
-    return false;
+    final byte[] data = new byte[d.length];
+    System.arraycopy(d.buffer, d.dataOffset, data, 0, d.length);
+    channel.write(data, channel.voidPromise());
+    return true;
+    //blocker = d;
+    //return false;
   }
 
   public boolean unblock()
@@ -118,47 +116,11 @@ public class PhysicalNode
   }
 
   /**
-   *
-   * @param o
-   * @return boolean
-   */
-  @Override
-  public boolean equals(Object o)
-  {
-    return o == this || (o.getClass() == this.getClass() && o.hashCode() == this.hashCode());
-  }
-
-  /**
-   *
-   * @return int
-   */
-  public final int getId()
-  {
-    return client.hashCode();
-  }
-
-  /**
-   *
-   * @return int
-   */
-  @Override
-  public final int hashCode()
-  {
-    return client.hashCode();
-  }
-
-  /**
    * @return the channel
    */
-  public AbstractLengthPrependerClient getClient()
+  public Channel getClient()
   {
-    return client;
-  }
-
-  @Override
-  public String toString()
-  {
-    return "PhysicalNode." + client;
+    return channel;
   }
 
   private static final Logger logger = LoggerFactory.getLogger(PhysicalNode.class);

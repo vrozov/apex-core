@@ -22,6 +22,9 @@ import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+
 /**
  *
  */
@@ -39,9 +42,9 @@ public class Publisher extends com.datatorrent.bufferserver.client.Publisher
   }
 
   @Override
-  public void onMessage(byte[] buffer, int offset, int size)
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
   {
-    logger.warn("received data when unexpected {}", Arrays.toString(Arrays.copyOfRange(buffer, offset, size)));
+    logger.warn("received data when unexpected {}", msg);
   }
 
   public void publishMessage(byte[] payload)
@@ -49,9 +52,9 @@ public class Publisher extends com.datatorrent.bufferserver.client.Publisher
     write(payload);
   }
 
-  public void activate(String version, int baseSeconds, int windowId)
+  public void activate(ChannelFuture channelFuture, String version, int baseSeconds, int windowId)
   {
-    super.activate(version, (long)baseSeconds << 32 | windowId);
+    super.activate(channelFuture, version, (long)baseSeconds << 32 | windowId);
   }
 
   private static final Logger logger = LoggerFactory.getLogger(Publisher.class);
