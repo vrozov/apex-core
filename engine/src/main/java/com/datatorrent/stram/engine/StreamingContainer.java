@@ -73,7 +73,6 @@ import com.datatorrent.bufferserver.server.Server;
 import com.datatorrent.bufferserver.storage.DiskStorage;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.common.util.ScheduledThreadPoolExecutor;
-import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.util.Slice;
 import com.datatorrent.stram.ComponentContextPair;
 import com.datatorrent.stram.RecoverableRpcProxy;
@@ -109,7 +108,6 @@ import com.datatorrent.stram.plan.logical.StreamCodecWrapperForPersistance;
 import com.datatorrent.stram.security.StramUserLogin;
 import com.datatorrent.stram.stream.BufferServerPublisher;
 import com.datatorrent.stram.stream.BufferServerSubscriber;
-import com.datatorrent.stram.stream.FastPublisher;
 import com.datatorrent.stram.stream.FastSubscriber;
 import com.datatorrent.stram.stream.InlineStream;
 import com.datatorrent.stram.stream.MuxStream;
@@ -118,6 +116,9 @@ import com.datatorrent.stram.stream.PartitionAwareSink;
 import com.datatorrent.stram.stream.PartitionAwareSinkForPersistence;
 import com.datatorrent.stram.util.LoggerUtil;
 
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import net.engio.mbassy.bus.MBassador;
 import net.engio.mbassy.bus.config.BusConfiguration;
 
@@ -148,14 +149,15 @@ public class StreamingContainer extends YarnContainerMain
   private int heartbeatIntervalMillis = 1000;
   private volatile boolean exitHeartbeatLoop = false;
   private final Object heartbeatTrigger = new Object();
-  public static DefaultEventLoop eventloop;
+  public static EventLoopGroup eventloop;
   /**
    * List of listeners interested in listening into the status change of the nodes.
    */
   private long firstWindowMillis;
   private int windowWidthMillis;
-  protected InetSocketAddress bufferServerAddress;
-  protected com.datatorrent.bufferserver.server.Server bufferServer;
+  private InetSocketAddress bufferServerAddress;
+  private Channel channel;
+  private com.datatorrent.bufferserver.server.Server bufferServer;
   private int checkpointWindowCount;
   private boolean fastPublisherSubscriber;
   private StreamingContainerContext containerContext;
@@ -166,11 +168,7 @@ public class StreamingContainer extends YarnContainerMain
   private RequestFactory requestFactory;
 
   static {
-    try {
-      eventloop = DefaultEventLoop.createEventLoop("ProcessWideEventLoop");
-    } catch (IOException io) {
-      throw new RuntimeException(io);
-    }
+    eventloop = new NioEventLoopGroup(1);
   }
 
   protected StreamingContainer(String containerId, StreamingContainerUmbilicalProtocol umbilical)
@@ -207,7 +205,6 @@ public class StreamingContainer extends YarnContainerMain
 
     try {
       if (ctx.deployBufferServer) {
-        eventloop.start();
 
         int bufferServerRAM = ctx.getValue(ContainerContext.BUFFER_SERVER_MB);
         logger.debug("buffer server memory {}", bufferServerRAM);
@@ -229,8 +226,10 @@ public class StreamingContainer extends YarnContainerMain
         if (ctx.getValue(Context.DAGContext.BUFFER_SPOOLING)) {
           bufferServer.setSpoolStorage(new DiskStorage());
         }
-        bufferServerAddress = NetUtils.getConnectAddress(bufferServer.run(eventloop));
-        logger.debug("Buffer server started: {}", bufferServerAddress);
+        channel = bufferServer.run(eventloop);
+        SocketAddress bindAddr = channel.localAddress();
+        logger.debug("Buffer server started: {}", bindAddr);
+        this.bufferServerAddress = NetUtils.getConnectAddress(((InetSocketAddress)bindAddr));
       }
     } catch (IOException ex) {
       logger.warn("deploy request failed due to {}", ex);
@@ -586,8 +585,13 @@ public class StreamingContainer extends YarnContainerMain
     }
 
     if (bufferServer != null) {
-      eventloop.stop(bufferServer);
-      eventloop.stop();
+      try {
+        channel.closeFuture().sync();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        eventloop.shutdownGracefully();
+      }
     }
 
     gens.clear();
@@ -636,7 +640,7 @@ public class StreamingContainer extends YarnContainerMain
       if (this.bufferServerAddress != null) {
         msg.bufferServerHost = this.bufferServerAddress.getHostName();
         msg.bufferServerPort = this.bufferServerAddress.getPort();
-        if (bufferServer != null && !eventloop.isActive()) {
+        if (bufferServer != null && eventloop.isTerminated()) {
           logger.warn("Requesting restart due to terminated event loop");
           msg.restartRequested = true;
         }
@@ -945,8 +949,8 @@ public class StreamingContainer extends YarnContainerMain
       bssc.setBufferServerAddress(new InetSocketAddress(InetAddress.getByName(null), nodi.bufferServerPort));
     }
 
-    Stream publisher = fastPublisherSubscriber ? new FastPublisher(connIdentifier, queueCapacity * 256) : new BufferServerPublisher(connIdentifier, queueCapacity);
-    return new HashMap.SimpleEntry<>(sinkIdentifier, new ComponentContextPair<>(publisher, bssc));
+    Stream publisher = new BufferServerPublisher(connIdentifier, queueCapacity);
+    return new HashMap.SimpleEntry<String, ComponentContextPair<Stream, StreamContext>>(sinkIdentifier, new ComponentContextPair<Stream, StreamContext>(publisher, bssc));
   }
 
   private HashMap<String, ComponentContextPair<Stream, StreamContext>> deployOutputStreams(

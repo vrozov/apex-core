@@ -23,6 +23,9 @@ import java.util.Collection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
+
 import static com.datatorrent.bufferserver.packet.SubscribeRequestTuple.getSerializedRequest;
 
 /**
@@ -42,14 +45,14 @@ public abstract class Subscriber extends AuthClient
 
   public Subscriber(String id)
   {
-    super(64 * 1024, 1024);
+    super();
     this.id = id;
   }
 
-  public void activate(final String version, final String type, final String sourceId, final int mask,
-      final Collection<Integer> partitions, final long windowId, final int bufferSize)
+  public void activate(ChannelFuture channelFuture, final String version, final String type, final String sourceId,
+      final int mask, final Collection<Integer> partitions, final long windowId, final int bufferSize)
   {
-    sendAuthenticate();
+    activate(channelFuture);
     write(getSerializedRequest(version, id, type, sourceId, mask, partitions, windowId, bufferSize));
   }
 

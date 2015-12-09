@@ -47,6 +47,9 @@ import com.datatorrent.stram.tuple.EndWindowTuple;
 import com.datatorrent.stram.tuple.ResetWindowTuple;
 import com.datatorrent.stram.tuple.Tuple;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.EventLoopGroup;
+
 /**
  * Implement tuple flow from buffer server to the node in a logical stream<p>
  * <br>
@@ -61,7 +64,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
   private long baseSeconds;
   protected StreamCodec<Object> serde;
   protected StatefulStreamCodec<Object> statefulSerde;
-  protected EventLoop eventloop;
+  protected EventLoopGroup eventloop;
   private final DataStatePair dsp;
   CircularBuffer<Slice> offeredFragments;
   CircularBuffer<Slice> polledFragments;
@@ -83,10 +86,31 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
   }
 
   @Override
-  public void read(int len)
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
   {
-    super.read(len);
-    readByteCount.addAndGet(len);
+    Slice f;
+    byte[] buffer = (byte[])msg;
+    if (freeFragments.isEmpty()) {
+      f = new Slice(buffer, 0, buffer.length);
+    } else {
+      f = freeFragments.pollUnsafe();
+      f.buffer = buffer;
+      f.offset = 0;
+      f.length = buffer.length;
+    }
+
+    if (!offeredFragments.offer(f)) {
+      synchronized (backlog) {
+        if (!suspended) {
+          ctx.channel().config().setAutoRead(false);
+          suspended = true;
+        }
+        int newsize = offeredFragments.capacity() == 1024 ? offeredFragments.capacity() : offeredFragments.capacity() << 1;
+        backlog.add(offeredFragments = new CircularBuffer<Slice>(newsize));
+        offeredFragments.add(f);
+      }
+    }
+    readByteCount.addAndGet(((byte[])msg).length);
   }
 
   @Override
@@ -95,36 +119,9 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
     setToken(context.get(StreamContext.BUFFER_SERVER_TOKEN));
     InetSocketAddress address = context.getBufferServerAddress();
     eventloop = context.get(StreamContext.EVENT_LOOP);
-    eventloop.connect(address.isUnresolved() ? new InetSocketAddress(address.getHostName(), address.getPort()) : address, this);
-
     logger.debug("Registering subscriber: id={} upstreamId={} streamLogicalName={} windowId={} mask={} partitions={} server={}", new Object[] {context.getSinkId(), context.getSourceId(), context.getId(), Codec.getStringWindowId(context.getFinishedWindowId()), context.getPartitionMask(), context.getPartitions(), context.getBufferServerAddress()});
-    activate(null, context.getId() + '/' + context.getSinkId(), context.getSourceId(), context.getPartitionMask(), context.getPartitions(), context.getFinishedWindowId(), freeFragments.capacity());
-  }
-
-  @Override
-  public void onMessage(byte[] buffer, int offset, int length)
-  {
-    Slice f;
-    if (freeFragments.isEmpty()) {
-      f = new Slice(buffer, offset, length);
-    } else {
-      f = freeFragments.pollUnsafe();
-      f.buffer = buffer;
-      f.offset = offset;
-      f.length = length;
-    }
-
-    if (!offeredFragments.offer(f)) {
-      synchronized (backlog) {
-        if (!suspended) {
-          suspendRead();
-          suspended = true;
-        }
-        int newsize = offeredFragments.capacity() == MAX_SENDBUFFER_SIZE ? offeredFragments.capacity() : offeredFragments.capacity() << 1;
-        backlog.add(offeredFragments = new CircularBuffer<>(newsize));
-        offeredFragments.add(f);
-      }
-    }
+    activate(connect(eventloop, address), null, context.getId() + '/' + context.getSinkId(), context.getSourceId(),
+        context.getPartitionMask(), context.getPartitions(), context.getFinishedWindowId(), freeFragments.capacity());
   }
 
   @Override
@@ -145,7 +142,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
   @Override
   public void deactivate()
   {
-    eventloop.disconnect(this);
+    disconnect();
     setToken(null);
   }
 

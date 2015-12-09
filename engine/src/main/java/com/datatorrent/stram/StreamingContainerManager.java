@@ -2146,8 +2146,7 @@ public class StreamingContainerManager implements PlanContext
   {
     BufferServerController bsc = new BufferServerController(operator.getLogicalId());
     bsc.setToken(operator.getContainer().getBufferServerToken());
-    InetSocketAddress address = operator.getContainer().bufferServerAddress;
-    StreamingContainer.eventloop.connect(address.isUnresolved() ? new InetSocketAddress(address.getHostName(), address.getPort()) : address, bsc);
+    bsc.connect(StreamingContainer.eventloop, operator.getContainer().bufferServerAddress);
     return bsc;
   }
 

@@ -28,6 +28,11 @@ import com.datatorrent.bufferserver.packet.Tuple;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.netlet.util.Slice;
 
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerAdapter;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.EventLoopGroup;
+
 /**
  * <p>Abstract Controller class.</p>
  *
@@ -39,28 +44,27 @@ public abstract class Controller extends AuthClient
 
   public Controller(String id)
   {
-    super(1024, 1024);
+    super();
     this.id = id;
   }
 
   public void purge(String version, String sourceId, long windowId)
   {
-    sendAuthenticate();
     write(PurgeRequestTuple.getSerializedRequest(version, sourceId, windowId));
     logger.debug("Sent purge request sourceId = {}, windowId = {}", sourceId, Codec.getStringWindowId(windowId));
   }
 
   public void reset(String version, String sourceId, long windowId)
   {
-    sendAuthenticate();
     write(ResetRequestTuple.getSerializedRequest(version, sourceId, windowId));
     logger.debug("Sent reset request sourceId = {}, windowId = {}", sourceId, Codec.getStringWindowId(windowId));
   }
 
   @Override
-  public void onMessage(byte[] buffer, int offset, int size)
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
   {
-    Tuple t = Tuple.getTuple(buffer, offset, size);
+    byte[] buffer = (byte[])msg;
+    Tuple t = Tuple.getTuple(buffer, 0, buffer.length);
     assert (t.getType() == MessageType.PAYLOAD);
     Slice f = t.getData();
     onMessage(new String(f.buffer, f.offset, f.length));

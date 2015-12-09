@@ -31,66 +31,78 @@ import com.datatorrent.bufferserver.server.Server;
 import com.datatorrent.bufferserver.support.Controller;
 import com.datatorrent.bufferserver.support.Publisher;
 import com.datatorrent.bufferserver.support.Subscriber;
-import com.datatorrent.netlet.DefaultEventLoop;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 import static java.lang.Thread.sleep;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.fail;
 
 /**
  *
  */
 public class DiskStorageTest
 {
-  static DefaultEventLoop eventloopServer;
-  static DefaultEventLoop eventloopClient;
+  static EventLoopGroup eventloopServer;
+  static EventLoopGroup eventloopClient;
   static Server instance;
   static Publisher bsp;
   static Subscriber bss;
   static Controller bsc;
   static int spinCount = 500;
-  static InetSocketAddress address;
+  static Channel channel;
+  static ChannelFuture bspChannelFuture;
+  static ChannelFuture bssChannelFuture;
+  static ChannelFuture bscChannelFuture;
 
   @BeforeClass
   public static void setupServerAndClients() throws Exception
   {
-    eventloopServer = DefaultEventLoop.createEventLoop("server");
-    eventloopServer.start();
+    eventloopServer = new NioEventLoopGroup(1);
 
-    eventloopClient = DefaultEventLoop.createEventLoop("client");
-    eventloopClient.start();
+    eventloopClient = new NioEventLoopGroup(2);
 
     instance = new Server(0, 1024,8);
     instance.setSpoolStorage(new DiskStorage());
 
-    address = instance.run(eventloopServer);
+    channel = instance.run(eventloopServer);
+    InetSocketAddress address = (InetSocketAddress)channel.localAddress();
     assertFalse(address.isUnresolved());
 
     bsp = new Publisher("MyPublisher");
-    eventloopClient.connect(address, bsp);
+    bspChannelFuture = bsp.connect(eventloopClient, address);
 
     bss = new Subscriber("MySubscriber");
-    eventloopClient.connect(address, bss);
+    bssChannelFuture = bss.connect(eventloopClient, address);
 
     bsc = new Controller("MyPublisher");
-    eventloopClient.connect(address, bsc);
+    bscChannelFuture = bsc.connect(eventloopClient, address);
   }
 
   @AfterClass
   public static void teardownServerAndClients()
   {
-    eventloopServer.stop(instance);
-    eventloopClient.stop();
-    eventloopServer.stop();
+    try {
+      channel.closeFuture().sync();
+    } catch (InterruptedException e) {
+      fail();
+    } finally {
+      eventloopClient.shutdownGracefully();
+      eventloopServer.shutdownGracefully();
+    }
   }
 
   @Test
   @SuppressWarnings("SleepWhileInLoop")
   public void testStorage() throws InterruptedException
   {
-    bss.activate(null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bss.activate(bssChannelFuture, null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
 
-    bsp.activate(null, 0x7afebabe, 0);
+    bsp.activate(bspChannelFuture, null, 0x7afebabe, 0);
 
     long windowId = 0x7afebabe00000000L;
     bsp.publishMessage(BeginWindowTuple.getSerializedTuple((int)windowId));
@@ -123,15 +135,13 @@ public class DiskStorageTest
     }
     Thread.sleep(10); // wait some more to receive more tuples if possible
 
-    eventloopClient.disconnect(bsp);
-    eventloopClient.disconnect(bss);
+    bsp.disconnect();
 
     assertEquals(bss.tupleCount.get(), 2004);
 
     bss = new Subscriber("MySubscriber");
-    eventloopClient.connect(address, bss);
-
-    bss.activate(null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bss.activate(bss.connect(eventloopClient, channel.localAddress()), null,
+        "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
 
     for (int i = 0; i < spinCount; i++) {
       sleep(10);
@@ -140,7 +150,7 @@ public class DiskStorageTest
       }
     }
     Thread.sleep(10); // wait some more to receive more tuples if possible
-    eventloopClient.disconnect(bss);
+    bss.disconnect();
 
     assertEquals(bss.tupleCount.get(), 2004);
 

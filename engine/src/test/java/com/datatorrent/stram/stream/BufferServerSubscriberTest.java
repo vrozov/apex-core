@@ -90,18 +90,6 @@ public class BufferServerSubscriberTest
         serde = myserde;
       }
 
-      @Override
-      public void suspendRead()
-      {
-        logger.debug("read suspended");
-      }
-
-      @Override
-      public void resumeRead()
-      {
-        logger.debug("read resumed");
-      }
-
     };
 
     SweepableReservoir reservoir = bss.acquireReservoir("unbufferedSink", 3);
@@ -111,7 +99,11 @@ public class BufferServerSubscriberTest
     while (i++ < 10) {
       Slice fragment = myserde.toByteArray(new byte[]{(byte)i});
       byte[] buffer = PayloadTuple.getSerializedTuple(myserde.getPartition(i), fragment);
-      bss.onMessage(buffer, 0, buffer.length);
+      try {
+        bss.channelRead(null, buffer);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
 
     reservoir.sweep(); /* 4 make it to the reservoir */

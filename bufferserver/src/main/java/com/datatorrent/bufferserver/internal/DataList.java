@@ -44,6 +44,9 @@ import com.datatorrent.bufferserver.util.VarInt;
 import com.datatorrent.netlet.AbstractClient;
 import com.datatorrent.netlet.util.VarInt.MutableInt;
 
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+
 import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 
@@ -68,7 +71,7 @@ public class DataList
   protected int size;
   protected int processingOffset;
   protected long baseSeconds;
-  private final Set<AbstractClient> suspendedClients = newHashSet();
+  private final Set<ChannelHandlerContext> suspendedClients = newHashSet();
   private final AtomicInteger numberOfInMemBlockPermits;
   private MutableInt nextOffset = new MutableInt();
   private Future<?> future;
@@ -390,10 +393,11 @@ public class DataList
     all_listeners.remove(dl);
   }
 
-  public boolean suspendRead(final AbstractClient client)
+  public boolean suspendRead(final ChannelHandlerContext ctx)
   {
     synchronized (suspendedClients) {
-      return suspendedClients.add(client) && client.suspendReadIfResumed();
+      ctx.channel().config().setAutoRead(false);
+      return suspendedClients.add(ctx);
     }
   }
 
@@ -402,8 +406,8 @@ public class DataList
     boolean resumedSuspendedClients = false;
     if (numberOfInMemBlockPermits > 0) {
       synchronized (suspendedClients) {
-        for (AbstractClient client : suspendedClients) {
-          resumedSuspendedClients |= client.resumeReadIfSuspended();
+        for (ChannelHandlerContext ctx : suspendedClients) {
+          ctx.channel().config().setAutoRead(true);
         }
         suspendedClients.clear();
       }
@@ -954,6 +958,13 @@ public class DataList
     {
       while (size == 0) {
         size = VarInt.read(buffer, readOffset, da.writingOffset, nextOffset);
+        if (size == 0) {
+          if (switchToNextBlock()) {
+            continue;
+          } else {
+            return false;
+          }
+        }
         if (nextOffset.integer > -5 && nextOffset.integer < 1) {
           if (da.writingOffset == buffer.length && switchToNextBlock()) {
             continue;

@@ -24,6 +24,9 @@ import org.slf4j.LoggerFactory;
 
 import com.datatorrent.bufferserver.packet.PublishRequestTuple;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
+
 /**
  * <p>Abstract Publisher class.</p>
  *
@@ -40,7 +43,7 @@ public abstract class Publisher extends AuthClient
 
   public Publisher(String id, int sendBufferCapacity)
   {
-    super(1024, sendBufferCapacity);
+    super();
     this.id = id;
   }
 
@@ -48,9 +51,9 @@ public abstract class Publisher extends AuthClient
    *
    * @param windowId
    */
-  public void activate(String version, long windowId)
+  public void activate(ChannelFuture channelFuture, String version, long windowId)
   {
-    sendAuthenticate();
+    activate(channelFuture);
     write(PublishRequestTuple.getSerializedRequest(version, id, windowId));
   }
 

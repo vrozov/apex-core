@@ -45,7 +45,7 @@ class BufferServerController extends Controller
   public void onMessage(String message)
   {
     logger.debug("Controller received {}, now disconnecting.", message);
-    StreamingContainer.eventloop.disconnect(this);
+    this.disconnect();
   }
 
   private static final Logger logger = LoggerFactory.getLogger(BufferServerController.class);

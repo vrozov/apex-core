@@ -36,6 +36,8 @@ import com.datatorrent.stram.StramLocalCluster;
 import com.datatorrent.stram.engine.ProcessingModeTests.CollectorOperator;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+
 /**
  *
  */
@@ -46,13 +48,13 @@ public class AtLeastOnceTest
   @Before
   public void setup() throws IOException
   {
-    StreamingContainer.eventloop.start();
+    StreamingContainer.eventloop = new NioEventLoopGroup(1);
   }
 
   @After
   public void teardown()
   {
-    StreamingContainer.eventloop.stop();
+    StreamingContainer.eventloop.shutdownGracefully();
 
   }
 

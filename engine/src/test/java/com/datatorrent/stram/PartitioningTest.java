@@ -62,6 +62,9 @@ import com.datatorrent.stram.plan.physical.PTOperator;
 import com.datatorrent.stram.support.StramTestSupport;
 import com.datatorrent.stram.support.StramTestSupport.WaitCondition;
 
+import io.netty.channel.nio.NioEventLoop;
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static java.lang.Thread.sleep;
 
 public class PartitioningTest
@@ -72,13 +75,13 @@ public class PartitioningTest
   @Before
   public void setup() throws IOException
   {
-    StreamingContainer.eventloop.start();
+    StreamingContainer.eventloop = new NioEventLoopGroup(1);
   }
 
   @After
   public void teardown()
   {
-    StreamingContainer.eventloop.stop();
+    StreamingContainer.eventloop.shutdownGracefully();
   }
 
   public static class CollectorOperator extends BaseOperator

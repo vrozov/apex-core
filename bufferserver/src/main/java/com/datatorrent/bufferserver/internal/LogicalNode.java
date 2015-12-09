@@ -32,8 +32,9 @@ import com.datatorrent.bufferserver.policy.Policy;
 import com.datatorrent.bufferserver.util.BitVector;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.bufferserver.util.SerializedData;
-import com.datatorrent.netlet.AbstractLengthPrependerClient;
-import com.datatorrent.netlet.EventLoop;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 
 /**
  * LogicalNode represents a logical node in a DAG<p>
@@ -99,9 +100,9 @@ public class LogicalNode implements DataListener
    *
    * @param connection
    */
-  public void addConnection(AbstractLengthPrependerClient connection)
+  public void addConnection(final Channel channel)
   {
-    PhysicalNode pn = new PhysicalNode(connection);
+    PhysicalNode pn = new PhysicalNode(channel);
     if (!physicalNodes.contains(pn)) {
       physicalNodes.add(pn);
     }
@@ -111,10 +112,10 @@ public class LogicalNode implements DataListener
    *
    * @param client
    */
-  public void removeChannel(AbstractLengthPrependerClient client)
+  public void removeChannel(final ChannelHandlerContext ctx)
   {
     for (PhysicalNode pn : physicalNodes) {
-      if (pn.getClient() == client) {
+      if (pn.getClient() == ctx) {
         physicalNodes.remove(pn);
         break;
       }
@@ -215,6 +216,12 @@ public class LogicalNode implements DataListener
                   physicalNodes);
           }
         }
+        if (ready)
+        {
+          for (PhysicalNode physicalNode : physicalNodes) {
+            physicalNode.getClient().flush();
+          }
+        }
       } catch (InterruptedException ie) {
         throw new RuntimeException(ie);
       }
@@ -261,6 +268,12 @@ public class LogicalNode implements DataListener
                   break;
               }
             }
+            if (ready) {
+              for (PhysicalNode node : physicalNodes) {
+                node.getClient().flush();
+              }
+            }
+
           } else {
             while (ready && iterator.hasNext()) {
               SerializedData data = iterator.next();
@@ -290,6 +303,11 @@ public class LogicalNode implements DataListener
                 default:
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
                   break;
+              }
+            }
+            if (ready) {
+              for (PhysicalNode node : physicalNodes) {
+                node.getClient().flush();
               }
             }
           }
@@ -341,10 +359,10 @@ public class LogicalNode implements DataListener
     return identifier;
   }
 
-  public void boot(EventLoop eventloop)
+  public void boot()
   {
     for (PhysicalNode pn : physicalNodes) {
-      eventloop.disconnect(pn.getClient());
+      pn.getClient().disconnect();
     }
     physicalNodes.clear();
   }

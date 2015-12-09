@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory;
 
 import com.datatorrent.bufferserver.packet.Tuple;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+
 /**
  *
  */
@@ -43,19 +46,21 @@ public class Subscriber extends com.datatorrent.bufferserver.client.Subscriber
   }
 
   @Override
-  public void activate(final String version, final String type, final String sourceId, final int mask,
+  public void activate(ChannelFuture channelFuture, final String version, final String type, final String sourceId,
+      final int mask,
       final Collection<Integer> partitions, final long windowId, final int bufferSize)
   {
     tupleCount.set(0);
     firstPayload = lastPayload = null;
     resetPayloads.clear();
-    super.activate(version, type, sourceId, mask, partitions, windowId, bufferSize);
+    super.activate(channelFuture, version, type, sourceId, mask, partitions, windowId, bufferSize);
   }
 
   @Override
-  public void onMessage(byte[] buffer, int offset, int size)
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
   {
-    Tuple tuple = Tuple.getTuple(buffer, offset, size);
+    byte[] buffer = (byte[])msg;
+    Tuple tuple = Tuple.getTuple(buffer, 0, buffer.length);
     tupleCount.incrementAndGet();
     switch (tuple.getType()) {
       case BEGIN_WINDOW:

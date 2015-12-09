@@ -47,6 +47,8 @@ import com.datatorrent.stram.support.StramTestSupport.TestMeta;
 import com.datatorrent.stram.tuple.EndWindowTuple;
 import com.datatorrent.stram.tuple.Tuple;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static java.lang.Thread.sleep;
 
 /**
@@ -71,13 +73,13 @@ public class ProcessingModeTests
   public void setup() throws IOException
   {
     dag = StramTestSupport.createDAG(testMeta);
-    StreamingContainer.eventloop.start();
+    StreamingContainer.eventloop = new NioEventLoopGroup(1);
   }
 
   @After
   public void teardown()
   {
-    StreamingContainer.eventloop.stop();
+    StreamingContainer.eventloop.shutdownGracefully();
   }
 
   public void testLinearInputOperatorRecovery() throws Exception

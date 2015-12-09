@@ -40,8 +40,15 @@ import com.datatorrent.bufferserver.support.Subscriber;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.netlet.DefaultEventLoop;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoop;
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  *
@@ -50,42 +57,47 @@ public class SubscriberTest
 {
   private static final Logger logger = LoggerFactory.getLogger(SubscriberTest.class);
   static Server instance;
-  static DefaultEventLoop eventloopServer;
-  static DefaultEventLoop eventloopClient;
-  static InetSocketAddress address;
+  static EventLoopGroup eventloopServer;
+  static EventLoopGroup eventloopClient;
+  static Channel channel;
 
   @BeforeClass
   public static void setupServerAndClients() throws Exception
   {
-    try {
-      eventloopServer = DefaultEventLoop.createEventLoop("server");
-      eventloopClient = DefaultEventLoop.createEventLoop("client");
-    } catch (IOException ioe) {
-      throw new RuntimeException(ioe);
-    }
-    eventloopServer.start();
-    eventloopClient.start();
+    eventloopServer = new NioEventLoopGroup(1);
+    eventloopClient = new NioEventLoopGroup(1);
 
     instance = new Server(0, 64, 2);
-    address = instance.run(eventloopServer);
-    assertTrue(address instanceof InetSocketAddress);
-    assertFalse(address.isUnresolved());
+    channel = instance.run(eventloopServer);
+    assertTrue(channel.localAddress() instanceof InetSocketAddress);
+    assertFalse(((InetSocketAddress)channel.localAddress()).isUnresolved());
   }
 
   @AfterClass
   public static void teardownServerAndClients()
   {
-    eventloopServer.stop(instance);
-    eventloopServer.stop();
-    eventloopClient.stop();
+    try {
+      channel.close().sync();
+    } catch (InterruptedException e) {
+      fail();
+    } finally {
+      try {
+        eventloopClient.shutdownGracefully().sync();
+        eventloopServer.shutdownGracefully().sync();
+      } catch (InterruptedException e) {
+        fail();
+      }
+    }
   }
 
-  @Test(timeOut = 1000)
+  @Test(timeOut = 100000)
   @SuppressWarnings("SleepWhileInLoop")
   public void test() throws InterruptedException
   {
+    InetSocketAddress address = ((InetSocketAddress)channel.localAddress());
+
     final Publisher bsp1 = new Publisher("MyPublisher");
-    eventloopClient.connect(address, bsp1);
+    ChannelFuture bsp1ChannelFuture = bsp1.connect(eventloopClient, address);
 
     final Subscriber bss1 = new Subscriber("MySubscriber")
     {
@@ -107,11 +119,12 @@ public class SubscriberTest
       }
 
     };
-    eventloopClient.connect(address, bss1);
+    ChannelFuture bss1ChanelFuture = bss1.connect(eventloopClient, address);
 
     final int baseWindow = 0x7afebabe;
-    bsp1.activate(null, baseWindow, 0);
-    bss1.activate(null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bsp1.activate(bsp1ChannelFuture, null, baseWindow, 0);
+    bss1.activate(bss1ChanelFuture, null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bss1.flush();
 
     final AtomicBoolean publisherRun = new AtomicBoolean(true);
     new Thread("publisher")
@@ -131,6 +144,8 @@ public class SubscriberTest
 
             bsp1.publishMessage(EndWindowTuple.getSerializedTuple((int)windowId));
 
+            bsp1.flush();
+
             windowId++;
             Thread.sleep(5);
           }
@@ -149,8 +164,8 @@ public class SubscriberTest
 
     publisherRun.set(false);
 
-    eventloopClient.disconnect(bsp1);
-    eventloopClient.disconnect(bss1);
+    bsp1.disconnect().sync();
+    bss1.disconnect().sync();
 
     /*
      * At this point, we know that both the publishers and the subscribers have gotten at least window Id 10.
@@ -158,8 +173,7 @@ public class SubscriberTest
      * subscribe from 8 onwards. What we should see is that subscriber gets the new data from 8 onwards.
      */
     final Publisher bsp2 = new Publisher("MyPublisher");
-    eventloopClient.connect(address, bsp2);
-    bsp2.activate(null, 0x7afebabe, 5);
+    bsp2.activate(bsp2.connect(eventloopClient, address), null, 0x7afebabe, 5);
 
     final Subscriber bss2 = new Subscriber("MyPublisher")
     {
@@ -175,8 +189,10 @@ public class SubscriberTest
       }
 
     };
-    eventloopClient.connect(address, bss2);
-    bss2.activate(null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0x7afebabe00000008L, 0);
+
+    bss2.activate(bss2.connect(eventloopClient, address), null, "BufferServerOutput/BufferServerSubscriber",
+        "MyPublisher", 0, null, 0x7afebabe00000008L, 0);
+    bss2.flush();
 
 
     publisherRun.set(true);
@@ -197,6 +213,8 @@ public class SubscriberTest
 
             bsp2.publishMessage(EndWindowTuple.getSerializedTuple((int)windowId));
 
+            bsp2.flush();
+
             windowId++;
             Thread.sleep(5);
           }
@@ -215,8 +233,8 @@ public class SubscriberTest
 
     publisherRun.set(false);
 
-    eventloopClient.disconnect(bsp2);
-    eventloopClient.disconnect(bss2);
+    bsp2.disconnect().sync();
+    bss2.disconnect().sync();
 
     assertTrue((bss2.lastPayload.getWindowId() - 8) * 3 <= bss2.tupleCount.get());
   }

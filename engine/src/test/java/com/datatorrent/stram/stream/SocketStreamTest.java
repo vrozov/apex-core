@@ -42,6 +42,10 @@ import com.datatorrent.stram.support.StramTestSupport;
 import com.datatorrent.stram.tuple.EndWindowTuple;
 import com.datatorrent.stram.tuple.Tuple;
 
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+
 import static java.lang.Thread.sleep;
 
 /**
@@ -53,14 +57,11 @@ public class SocketStreamTest
   private static final Logger LOG = LoggerFactory.getLogger(SocketStreamTest.class);
   private static int bufferServerPort = 0;
   private static Server bufferServer = null;
-  static EventLoop eventloop;
+  private static Channel channel;
+  static EventLoopGroup eventloop;
 
   static {
-    try {
-      eventloop = DefaultEventLoop.createEventLoop("StreamTestEventLoop");
-    } catch (IOException ex) {
-      throw new RuntimeException(ex);
-    }
+    eventloop = new NioEventLoopGroup(1);
   }
 
   @BeforeClass
@@ -68,7 +69,8 @@ public class SocketStreamTest
   {
     ((DefaultEventLoop)eventloop).start();
     bufferServer = new Server(0); // find random port
-    InetSocketAddress bindAddr = bufferServer.run(eventloop);
+    channel = bufferServer.run(eventloop);
+    InetSocketAddress bindAddr = (InetSocketAddress)channel.localAddress();
     bufferServerPort = bindAddr.getPort();
   }
 
@@ -76,9 +78,14 @@ public class SocketStreamTest
   public static void tearDown() throws IOException
   {
     if (bufferServer != null) {
-      eventloop.stop(bufferServer);
+      try {
+        channel.closeFuture().sync();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        eventloop.shutdownGracefully();
+      }
     }
-    ((DefaultEventLoop)eventloop).stop();
   }
 
   /**
@@ -162,8 +169,8 @@ public class SocketStreamTest
       }
     }
 
-    eventloop.disconnect(oss);
-    eventloop.disconnect(iss);
+    oss.disconnect();
+    iss.disconnect();
     Assert.assertEquals("Received messages", 1, messageCount.get());
   }
 
