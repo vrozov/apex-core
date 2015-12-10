@@ -74,6 +74,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   public void put(Object payload)
   {
     count++;
+    boolean flush = false;
     byte[] array;
     if (payload instanceof Tuple) {
       final Tuple t = (Tuple)payload;
@@ -93,10 +94,12 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
 
         case END_WINDOW:
           array = EndWindowTuple.getSerializedTuple((int)t.getWindowId());
+          flush = true;
           break;
 
         case END_STREAM:
           array = EndStreamTuple.getSerializedTuple((int)t.getWindowId());
+          flush = true;
           break;
 
         case RESET_WINDOW:
@@ -138,6 +141,10 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
     }
 
     write(array);
+    if (flush) {
+      flush();
+    }
+
     publishedByteCount.addAndGet(array.length);
     /*
     try {
@@ -163,6 +170,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
     eventloop = context.get(StreamContext.EVENT_LOOP);
     logger.debug("Registering publisher: {} {} windowId={} server={}", new Object[] {context.getSourceId(), context.getId(), Codec.getStringWindowId(context.getFinishedWindowId()), context.getBufferServerAddress()});
     super.activate(connect(eventloop, context.getBufferServerAddress()), null, context.getFinishedWindowId());
+    flush();
   }
 
   @Override

@@ -2015,7 +2015,8 @@ public class StreamingContainerManager implements PlanContext
   {
     BufferServerController bsc = new BufferServerController(operator.getLogicalId());
     bsc.setToken(operator.getContainer().getBufferServerToken());
-    bsc.connect(StreamingContainer.eventloop, operator.getContainer().bufferServerAddress);
+    bsc.activate(bsc.connect(StreamingContainer.eventloop, operator.getContainer().bufferServerAddress));
+    bsc.flush();
     return bsc;
   }
 

@@ -120,6 +120,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
     logger.debug("Registering subscriber: id={} upstreamId={} streamLogicalName={} windowId={} mask={} partitions={} server={}", new Object[] {context.getSinkId(), context.getSourceId(), context.getId(), Codec.getStringWindowId(context.getFinishedWindowId()), context.getPartitionMask(), context.getPartitions(), context.getBufferServerAddress()});
     activate(connect(eventloop, address), null, context.getId() + '/' + context.getSinkId(), context.getSourceId(),
         context.getPartitionMask(), context.getPartitions(), context.getFinishedWindowId(), freeFragments.capacity());
+    flush();
   }
 
   @Override

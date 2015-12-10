@@ -87,7 +87,7 @@ public class DiskStorageTest
   public static void teardownServerAndClients()
   {
     try {
-      channel.closeFuture().sync();
+      channel.disconnect().sync();
     } catch (InterruptedException e) {
       fail();
     } finally {
@@ -101,6 +101,7 @@ public class DiskStorageTest
   public void testStorage() throws InterruptedException
   {
     bss.activate(bssChannelFuture, null, "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bss.flush();
 
     bsp.activate(bspChannelFuture, null, 0x7afebabe, 0);
 
@@ -127,6 +128,8 @@ public class DiskStorageTest
 
     bsp.publishMessage(EndWindowTuple.getSerializedTuple((int)windowId));
 
+    bsp.flush();
+
     for (int i = 0; i < spinCount; i++) {
       sleep(10);
       if (bss.tupleCount.get() > 2003) {
@@ -135,13 +138,16 @@ public class DiskStorageTest
     }
     Thread.sleep(10); // wait some more to receive more tuples if possible
 
-    bsp.disconnect();
+    bsp.disconnect().sync();
+
+    bss.disconnect().sync();
 
     assertEquals(bss.tupleCount.get(), 2004);
 
     bss = new Subscriber("MySubscriber");
     bss.activate(bss.connect(eventloopClient, channel.localAddress()), null,
         "BufferServerOutput/BufferServerSubscriber", "MyPublisher", 0, null, 0L, 0);
+    bss.flush();
 
     for (int i = 0; i < spinCount; i++) {
       sleep(10);
@@ -150,7 +156,7 @@ public class DiskStorageTest
       }
     }
     Thread.sleep(10); // wait some more to receive more tuples if possible
-    bss.disconnect();
+    bss.disconnect().sync();
 
     assertEquals(bss.tupleCount.get(), 2004);
 

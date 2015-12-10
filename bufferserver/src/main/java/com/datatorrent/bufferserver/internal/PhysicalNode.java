@@ -79,8 +79,8 @@ public class PhysicalNode
 
   public boolean send(SerializedData d)
   {
-    final byte[] data = new byte[d.length];
-    System.arraycopy(d.buffer, d.dataOffset, data, 0, d.length);
+    final byte[] data = new byte[d.length - (d.dataOffset - d.offset)];
+    System.arraycopy(d.buffer, d.dataOffset, data, 0, data.length);
     channel.write(data, channel.voidPromise());
     return true;
     //blocker = d;
