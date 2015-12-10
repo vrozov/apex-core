@@ -128,6 +128,7 @@ public class StramClient
   // platform dependencies that are not part of Hadoop and need to be deployed,
   // entry below will cause containing jar file from client to be copied to cluster
   private static final Class<?>[] APEX_CLASSES = new Class<?>[]{
+      io.netty.handler.codec.LengthFieldBasedFrameDecoder.class,
       com.datatorrent.netlet.util.Slice.class,
       com.datatorrent.netlet.EventLoop.class,
       com.datatorrent.bufferserver.server.Server.class,
