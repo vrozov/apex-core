@@ -204,8 +204,8 @@ public class Server
 
   private final ConcurrentHashMap<String, DataList> publisherBuffers = new ConcurrentHashMap<>(1, 0.75f, 1);
   private final ConcurrentHashMap<String, LogicalNode> subscriberGroups = new ConcurrentHashMap<String, LogicalNode>();
-  private final ConcurrentHashMap<String, ChannelHandlerContext> publisherChannels = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, ChannelHandlerContext> subscriberChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Channel> publisherChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Channel> subscriberChannels = new ConcurrentHashMap<>();
   private final int blockSize;
   private final int numberOfCacheBlocks;
 
@@ -225,12 +225,8 @@ public class Server
 
     final byte[] tuple = PayloadTuple.getSerializedTuple(0, message.length);
     System.arraycopy(message, 0, tuple, tuple.length - message.length, message.length);
-    if (ctx.write(tuple)) {
-      ctx.write();
-    } else {
-      logger.error("Failed to deliver purge ack message. {} send buffers are full.", ctx);
-      throw new RuntimeException("Failed to deliver purge ack message. " + ctx + "send buffers are full.");
-    }
+    ctx.channel().write(tuple);
+    ctx.channel().flush();
   }
 
   public void purge(long windowId)
@@ -249,7 +245,7 @@ public class Server
     if (dl == null) {
       message = ("Invalid identifier '" + request.getIdentifier() + "'").getBytes();
     } else {
-      ChannelHandlerContext previous = publisherChannels.remove(request.getIdentifier());
+      Channel previous = publisherChannels.remove(request.getIdentifier());
       if (previous != null) {
         previous.disconnect();
       }
@@ -259,12 +255,8 @@ public class Server
 
     final byte[] tuple = PayloadTuple.getSerializedTuple(0, message.length);
     System.arraycopy(message, 0, tuple, tuple.length - message.length, message.length);
-    if (ctx.write(tuple)) {
-      ctx.write();
-    } else {
-      logger.error("Failed to deliver reset ack message. {} send buffers are full.", ctx);
-      throw new RuntimeException("Failed to deliver reset ack message. " + ctx + "send buffers are full.");
-    }
+    ctx.channel().write(tuple);
+    ctx.channel().flush();
   }
 
   /**
@@ -286,7 +278,7 @@ public class Server
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      final ChannelHandlerContext previous = subscriberChannels.put(identifier, ctx);
+      final Channel previous = subscriberChannels.put(identifier, ctx.channel());
       if (previous != null) {
         previous.disconnect();
       }
@@ -362,7 +354,7 @@ public class Server
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      final ChannelHandlerContext previous = publisherChannels.put(identifier, ctx);
+      final Channel previous = publisherChannels.put(identifier, ctx.channel());
       if (previous != null) {
         previous.disconnect();
       }
@@ -533,10 +525,10 @@ public class Server
 
       LogicalNode ln = subscriberGroups.get(type);
       if (ln != null) {
-        if (subscriberChannels.containsValue(this)) {
-          final Iterator<Entry<String, ChannelHandlerContext>> i = subscriberChannels.entrySet().iterator();
+        if (subscriberChannels.containsValue(ctx.channel())) {
+          final Iterator<Entry<String, Channel>> i = subscriberChannels.entrySet().iterator();
           while (i.hasNext()) {
-            if (i.next().getValue() == ctx) {
+            if (i.next().getValue() == ctx.channel()) {
               i.remove();
               break;
             }
@@ -646,10 +638,10 @@ public class Server
        * a new publisher comes up with the same name. We leave it to the stream to decide when to bring up a new node
        * with the same identifier as the one which just died.
        */
-      if (publisherChannels.containsValue(this)) {
-        final Iterator<Entry<String, ChannelHandlerContext>> i = publisherChannels.entrySet().iterator();
+      if (publisherChannels.containsValue(ctx.channel())) {
+        final Iterator<Entry<String, Channel>> i = publisherChannels.entrySet().iterator();
         while (i.hasNext()) {
-          if (i.next().getValue() == ctx) {
+          if (i.next().getValue() == ctx.channel()) {
             i.remove();
             break;
           }
