@@ -1559,6 +1559,11 @@ public class StreamingContainerManager implements PlanContext
         }
         for (ContainerStats.OperatorStats stats : statsList) {
 
+          if (stats == null) {
+            LOG.warn("Operator {} statistics {} contains null", shb.getNodeId(), statsList);
+            continue;
+          }
+
           /* report checkpoint-ed WindowId status of the operator */
           if (stats.checkpoint instanceof Checkpoint) {
             if (oper.getRecentCheckpoint() == null || oper.getRecentCheckpoint().windowId < stats.checkpoint.getWindowId()) {
@@ -1684,8 +1689,12 @@ public class StreamingContainerManager implements PlanContext
           if (stats.windowId > currentEndWindowStatsWindowId) {
             Map<Integer, EndWindowStats> endWindowStatsMap = endWindowStatsOperatorMap.get(stats.windowId);
             if (endWindowStatsMap == null) {
-              endWindowStatsOperatorMap.putIfAbsent(stats.windowId, new ConcurrentSkipListMap<Integer, EndWindowStats>());
-              endWindowStatsMap = endWindowStatsOperatorMap.get(stats.windowId);
+              endWindowStatsMap = new ConcurrentSkipListMap<Integer, EndWindowStats>();
+              Map<Integer, EndWindowStats> endWindowStatsMapPrevious =
+                  endWindowStatsOperatorMap.putIfAbsent(stats.windowId, endWindowStatsMap);
+              if (endWindowStatsMapPrevious != null) {
+                endWindowStatsMap = endWindowStatsMapPrevious;
+              }
             }
             endWindowStatsMap.put(shb.getNodeId(), endWindowStats);
 
