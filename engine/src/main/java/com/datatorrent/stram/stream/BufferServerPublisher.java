@@ -85,10 +85,12 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
           break;
 
         case BEGIN_WINDOW:
+          logger.info("{} {} {}", this, t.getType(), t.getWindowId());
           array = BeginWindowTuple.getSerializedTuple((int)t.getWindowId());
           break;
 
         case END_WINDOW:
+          logger.info("{} {} {}", this, t.getType(), t.getWindowId());
           array = EndWindowTuple.getSerializedTuple((int)t.getWindowId());
           break;
 

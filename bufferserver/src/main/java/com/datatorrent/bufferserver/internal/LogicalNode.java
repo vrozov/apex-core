@@ -257,6 +257,17 @@ public class LogicalNode implements DataListener
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
                   break;
 
+                case MessageType.BEGIN_WINDOW_VALUE:
+                case MessageType.END_WINDOW_VALUE:
+                  Tuple t = Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset);
+                  ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  if (ready) {
+                    logger.info("sent {} {} to {}", t.getType(), t.getWindowId(), physicalNodes);
+                  } else {
+                    logger.info("{} is not ready to accept {} {}", physicalNodes, t.getType(), t.getWindowId());
+                  }
+                  break;
+
                 default:
                   //logger.debug("sending data of type {}", MessageType.valueOf(data.buffer[data.dataOffset]));
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
@@ -286,6 +297,17 @@ public class LogicalNode implements DataListener
                   tuple = Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset);
                   baseSeconds = (long)tuple.getBaseSeconds() << 32;
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  break;
+
+                case MessageType.BEGIN_WINDOW_VALUE:
+                case MessageType.END_WINDOW_VALUE:
+                  Tuple t = Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset);
+                  ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  if (ready) {
+                    logger.info("sent {} {} to {}", t.getType(), t.getWindowId(), physicalNodes);
+                  } else {
+                    logger.info("{} is not ready to accept {} {}", physicalNodes, t.getType(), t.getWindowId());
+                  }
                   break;
 
                 default:
