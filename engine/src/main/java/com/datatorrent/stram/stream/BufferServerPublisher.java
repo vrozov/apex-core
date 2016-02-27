@@ -55,6 +55,9 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   private EventLoop eventloop;
   private int count;
   private StatefulStreamCodec<Object> statefulSerde;
+  private long totalTupleCount;
+  private long totalConrtolTupleCount;
+  private long tuplesCount;
 
   public BufferServerPublisher(String sourceId, int queueCapacity)
   {
@@ -71,9 +74,13 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   public void put(Object payload)
   {
     count++;
+    totalTupleCount++;
+    tuplesCount++;
+
     byte[] array;
     if (payload instanceof Tuple) {
       final Tuple t = (Tuple)payload;
+      totalConrtolTupleCount++;
 
       switch (t.getType()) {
         case CHECKPOINT:
@@ -91,6 +98,9 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
 
         case END_WINDOW:
           logger.info("{} {} {}", this, t.getType(), t.getWindowId());
+          logger.info("Tuples processed {}, Control tuples processed {}, Payload tuples processed {}," +
+              "Tuples processed in the current window {}", totalTupleCount, totalConrtolTupleCount,
+              totalTupleCount - totalConrtolTupleCount, tuplesCount);
           array = EndWindowTuple.getSerializedTuple((int)t.getWindowId());
           break;
 
