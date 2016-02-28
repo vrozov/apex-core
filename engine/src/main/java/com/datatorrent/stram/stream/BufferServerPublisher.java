@@ -19,10 +19,13 @@
 package com.datatorrent.stram.stream;
 
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.log4j.DTLoggerFactory;
 
 import com.datatorrent.api.StreamCodec;
 
@@ -92,12 +95,19 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
           break;
 
         case BEGIN_WINDOW:
-          logger.info("{} {} {}", this, t.getType(), t.getWindowId());
+          tuplesCount = 1;
+          logger.info("{} {} {}", this, t.getType(), (int)t.getWindowId());
+          if ((int)t.getWindowId() == 125) {
+            HashMap<String, String> levels = new HashMap();
+            levels.put("com.datatorrent.bufferserver.*", "DEBUG");
+            levels.put("com.datatorrent.netlet.*", "DEBUG");
+            DTLoggerFactory.getInstance().changeLoggersLevel(levels);
+          }
           array = BeginWindowTuple.getSerializedTuple((int)t.getWindowId());
           break;
 
         case END_WINDOW:
-          logger.info("{} {} {}", this, t.getType(), t.getWindowId());
+          logger.info("{} {} {}", this, t.getType(), (int)t.getWindowId());
           logger.info("Tuples processed {}, Control tuples processed {}, Payload tuples processed {}," +
               "Tuples processed in the current window {}", totalTupleCount, totalConrtolTupleCount,
               totalTupleCount - totalConrtolTupleCount, tuplesCount);
@@ -129,8 +139,16 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
         if (dsp.state != null) {
           array = DataTuple.getSerializedTuple(MessageType.CODEC_STATE_VALUE, dsp.state);
           try {
+            boolean logged = false;
             while (!write(array)) {
+              if (!logged) {
+                logger.info("netlet buffer full sending data to {}", this);
+                logged = true;
+              }
               sleep(5);
+            }
+            if (logged) {
+              logger.info("submitted to netlet {}", this);
             }
           } catch (InterruptedException ie) {
             throw new RuntimeException(ie);
@@ -144,8 +162,16 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
     }
 
     try {
+      boolean logged = false;
       while (!write(array)) {
+        if (!logged) {
+          logger.info("netlet buffer full sending data to {}", this);
+          logged = true;
+        }
         sleep(5);
+      }
+      if (logged) {
+        logger.info("submitted to netlet {}", this);
       }
       publishedByteCount.addAndGet(array.length);
     }

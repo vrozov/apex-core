@@ -417,6 +417,7 @@ public class DataList
 
   public boolean suspendRead(final AbstractClient client)
   {
+    logger.info("Suspending read {} {}", this, client);
     synchronized (suspendedClients) {
       return suspendedClients.add(client) && client.suspendReadIfResumed();
     }
@@ -428,11 +429,14 @@ public class DataList
     if (numberOfInMemBlockPermits > 0) {
       synchronized (suspendedClients) {
         for (AbstractClient client : suspendedClients) {
+          logger.info("Resuming suspending read {} {}", this, client);
           resumedSuspendedClients |= client.resumeReadIfSuspended();
         }
         suspendedClients.clear();
       }
     } else {
+      logger.info("Keeping clients {} suspended {}. numberOfInMemBlockPermits {}, Listeners: {}", suspendedClients,
+          this, numberOfInMemBlockPermits, listeners);
       logger.debug("Keeping clients: {} suspended, numberOfInMemBlockPermits={}, Listeners: {}", suspendedClients, numberOfInMemBlockPermits, all_listeners);
     }
     return resumedSuspendedClients;

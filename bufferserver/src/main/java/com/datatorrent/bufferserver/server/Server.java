@@ -596,6 +596,7 @@ public class Server implements ServerListener
       //if (buffer[offset] == MessageType.BEGIN_WINDOW_VALUE || buffer[offset] == MessageType.END_WINDOW_VALUE) {
       //  logger.debug("server received {}", Tuple.getTuple(buffer, offset, size));
       //}
+      logger.debug("{} buffer {}, offset {}, size {}", this, buffer.hashCode(), offset, size);
       dirty = true;
     }
 
@@ -617,10 +618,10 @@ public class Server implements ServerListener
           final int interestOps = key.interestOps();
           if ((interestOps & SelectionKey.OP_READ) == 0) {
             if (readExt(0)) {
-              logger.debug("Resuming read on key {} with attachment {}", key, key.attachment());
+              logger.info("Resuming read on key {} with attachment {}", key, key.attachment());
               key.interestOps(interestOps | SelectionKey.OP_READ);
             } else {
-              logger.debug("Keeping read on key {} with attachment {} suspended. ", key, key.attachment(), datalist);
+              logger.info("Keeping read on key {} with attachment {} suspended. ", key, key.attachment(), datalist);
               datalist.notifyListeners();
             }
           }
@@ -637,11 +638,14 @@ public class Server implements ServerListener
 
     private boolean readExt(int len)
     {
-      //logger.debug("read {} bytes", len);
+      logger.debug("{} read {} bytes, remaining {}, write offset {}, read offset {}, buffer length {}", this, len,
+          byteBuffer.remaining(), writeOffset, readOffset, buffer.length);
       writeOffset += len;
       do {
         if (size <= 0) {
-          switch (size = readSize()) {
+          size = readSize();
+          logger.debug("{} size {}", this);
+          switch (size) {
             case -1:
               if (writeOffset == buffer.length) {
                 if (readOffset > writeOffset - 5) {
@@ -674,6 +678,8 @@ public class Server implements ServerListener
           onMessage(buffer, readOffset, size);
           readOffset += size;
           size = 0;
+          logger.debug("{} buffer {}, write offset {}, read offset {}, size {}", this, buffer.hashCode(), writeOffset,
+              readOffset, size);
         } else {
           if (writeOffset == buffer.length) {
             dirty = false;
@@ -681,6 +687,8 @@ public class Server implements ServerListener
             /*
              * hit wall while writing serialized data, so have to allocate a new byteBuffer.
              */
+            logger.debug("{} buffer {}, write offset {}, read offset {}, size {}, {}", this, buffer.hashCode(), writeOffset,
+                readOffset, size, VarInt.getSize(size));
             if (!switchToNewBufferOrSuspendRead(buffer, readOffset - VarInt.getSize(size))) {
               readOffset -= VarInt.getSize(size);
               size = 0;
@@ -709,20 +717,27 @@ public class Server implements ServerListener
     private boolean switchToNewBuffer(final byte[] array, final int offset)
     {
       if (datalist.isMemoryBlockAvailable()) {
+        logger.debug("allocating new buffer {}", this);
         final byte[] newBuffer = datalist.newBuffer();
         byteBuffer = ByteBuffer.wrap(newBuffer);
         if (array == null || array.length - offset == 0) {
           writeOffset = 0;
         } else {
           writeOffset = array.length - offset;
+          logger.info("{} buffer {}, write offset {}, offset {}", this, buffer.hashCode(), writeOffset, offset);
+          if (offset == 0) {
+            throw new IllegalArgumentException("offset can not be 0");
+          }
           System.arraycopy(buffer, offset, newBuffer, 0, writeOffset);
           byteBuffer.position(writeOffset);
         }
+        logger.debug("{} new buffer remaining {}", this, byteBuffer.remaining());
         buffer = newBuffer;
         readOffset = 0;
         datalist.addBuffer(buffer);
         return true;
       }
+      logger.debug("new buffer is not available", this);
       return false;
     }
 
