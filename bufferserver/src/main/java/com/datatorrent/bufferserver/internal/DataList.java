@@ -447,9 +447,13 @@ public class DataList
     return (storage == null) || (numberOfInMemBlockPermits.get() > 0);
   }
 
-  public byte[] newBuffer()
+  public byte[] newBuffer(final int size)
   {
-    return new byte[blockSize];
+    if (size > blockSize) {
+      return new byte[size];
+    } else {
+      return new byte[blockSize];
+    }
   }
 
   public synchronized void addBuffer(byte[] array)

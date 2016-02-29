@@ -177,7 +177,7 @@ public class StreamingContainer extends YarnContainerMain
         logger.debug("buffer server memory {}", bufferServerRAM);
         int blockCount;
         int blocksize;
-        if (bufferServerRAM < ContainerContext.BUFFER_SERVER_MB.defaultValue) {
+        if (bufferServerRAM < 2 * ContainerContext.BUFFER_SERVER_MB.defaultValue) {
           blockCount = 8;
           blocksize = bufferServerRAM / blockCount;
           if (blocksize < 1) {
@@ -185,7 +185,7 @@ public class StreamingContainer extends YarnContainerMain
           }
         }
         else {
-          blocksize = 64;
+          blocksize = 128;
           blockCount = bufferServerRAM / blocksize;
         }
         // start buffer server, if it was not set externally

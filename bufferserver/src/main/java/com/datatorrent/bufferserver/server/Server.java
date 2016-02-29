@@ -644,7 +644,11 @@ public class Server implements ServerListener
       do {
         if (size <= 0) {
           size = readSize();
-          logger.debug("{} size {}", this);
+          if (size > buffer.length) {
+            logger.error("Tuple size {} exceeds buffer server block size {}. Please decrease tuple size", size,
+                buffer.length);
+          }
+          logger.debug("{} size {}", this, size);
           switch (size) {
             case -1:
               if (writeOffset == buffer.length) {
@@ -656,7 +660,7 @@ public class Server implements ServerListener
                    * so we allocate a new byteBuffer and copy over the partially written data to the
                    * new byteBuffer and start as if we always had full room but not enough data.
                    */
-                  if (!switchToNewBufferOrSuspendRead(buffer, readOffset)) {
+                  if (!switchToNewBufferOrSuspendRead(buffer, readOffset, size)) {
                     return false;
                   }
                 }
@@ -689,7 +693,7 @@ public class Server implements ServerListener
              */
             logger.debug("{} buffer {}, write offset {}, read offset {}, size {}, {}", this, buffer.hashCode(), writeOffset,
                 readOffset, size, VarInt.getSize(size));
-            if (!switchToNewBufferOrSuspendRead(buffer, readOffset - VarInt.getSize(size))) {
+            if (!switchToNewBufferOrSuspendRead(buffer, readOffset - VarInt.getSize(size), size)) {
               readOffset -= VarInt.getSize(size);
               size = 0;
               return false;
@@ -705,20 +709,20 @@ public class Server implements ServerListener
       while (true);
     }
 
-    private boolean switchToNewBufferOrSuspendRead(final byte[] array, final int offset)
+    private boolean switchToNewBufferOrSuspendRead(final byte[] array, final int offset, final int size)
     {
-      if (switchToNewBuffer(array, offset)) {
+      if (switchToNewBuffer(array, offset, size)) {
         return true;
       }
       datalist.suspendRead(this);
       return false;
     }
 
-    private boolean switchToNewBuffer(final byte[] array, final int offset)
+    private boolean switchToNewBuffer(final byte[] array, final int offset, final int size)
     {
       if (datalist.isMemoryBlockAvailable()) {
         logger.debug("allocating new buffer {}", this);
-        final byte[] newBuffer = datalist.newBuffer();
+        final byte[] newBuffer = datalist.newBuffer(size);
         byteBuffer = ByteBuffer.wrap(newBuffer);
         if (array == null || array.length - offset == 0) {
           writeOffset = 0;
