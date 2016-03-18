@@ -43,6 +43,13 @@ class BufferServerController extends Controller
   }
 
   @Override
+  public void connected()
+  {
+    super.connected();
+    logger.info("Controller {} connected {}", this, ((SocketChannel)this.key.channel()).socket());
+  }
+
+  @Override
   public void onMessage(String message)
   {
     logger.info("Controller {} received {}. Now disconnecting {}", this, message, ((SocketChannel)this.key.channel()).socket());
