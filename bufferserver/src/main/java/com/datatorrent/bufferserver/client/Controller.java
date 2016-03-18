@@ -50,8 +50,7 @@ public abstract class Controller extends AuthClient
   {
     sendAuthenticate();
     write(PurgeRequestTuple.getSerializedRequest(version, sourceId, windowId));
-    logger.info("{} {}: Sent purge request sourceId = {}, windowId = {}", this, ((SocketChannel)this.key.channel()).socket(),
-        sourceId, Codec.getStringWindowId(windowId));
+    logger.info("{}: Sent purge request sourceId = {}, windowId = {}", this, sourceId, Codec.getStringWindowId(windowId));
   }
 
   public void reset(String version, String sourceId, long windowId)
