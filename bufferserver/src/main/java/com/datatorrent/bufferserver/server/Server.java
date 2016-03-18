@@ -478,12 +478,13 @@ public class Server implements ServerListener
           break;
 
         case PURGE_REQUEST:
-          logger.info("Received purge request: {}", request);
+          logger.info("{} {} Received purge request: {}", this, ((SocketChannel)this.key.channel()).socket(), request);
           try {
             handlePurgeRequest((PurgeRequestTuple)request, this);
           } catch (IOException io) {
             throw new RuntimeException(io);
           }
+          logger.info("{} {} Processed purge request: {}", this, ((SocketChannel)this.key.channel()).socket(), request);
           break;
 
         case RESET_REQUEST:
