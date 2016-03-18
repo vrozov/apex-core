@@ -20,6 +20,7 @@ package com.datatorrent.stram;
 
 import com.datatorrent.stram.engine.StreamingContainer;
 import java.net.InetSocketAddress;
+import java.nio.channels.SocketChannel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +45,8 @@ class BufferServerController extends Controller
   @Override
   public void onMessage(String message)
   {
-    logger.debug("Controller received {}, now disconnecting.", message);
+    logger.info("Controller {} received {}. Now disconnecting {}", this, message, ((SocketChannel)this.key.channel()).socket());
+    //logger.debug("Controller received {}, now disconnecting.", message);
     StreamingContainer.eventloop.disconnect(this);
   }
 
