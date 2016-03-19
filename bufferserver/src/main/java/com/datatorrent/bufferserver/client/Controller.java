@@ -58,9 +58,17 @@ public abstract class Controller extends AuthClient
   }
 
   @Override
+  public void read(int len)
+  {
+    logger.info("{} {}", this, len);
+    super.read(len);
+  }
+
+  @Override
   public void onMessage(byte[] buffer, int offset, int size)
   {
     Tuple t = Tuple.getTuple(buffer, offset, size);
+    logger.info("{} {}", this, t);
     assert (t.getType() == MessageType.PAYLOAD);
     Slice f = t.getData();
     onMessage(new String(f.buffer, f.offset, f.length));
@@ -71,7 +79,7 @@ public abstract class Controller extends AuthClient
   @Override
   public String toString()
   {
-    return "Controller{" + "id=" + id + '}';
+    return getClass().getSimpleName() + "@" + Integer.toString(hashCode()) + "{id=" + id + '}';
   }
 
   private static final Logger logger = LoggerFactory.getLogger(Controller.class);
