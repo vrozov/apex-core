@@ -188,7 +188,15 @@ public class Server implements ServerListener
 
     final byte[] tuple = PayloadTuple.getSerializedTuple(0, message.length);
     System.arraycopy(message, 0, tuple, tuple.length - message.length, message.length);
-    ctx.write(tuple);
+    try {
+      while (!ctx.write(tuple)) {
+        logger.warn("Waiting to send {} response to {}", new String(message), ctx);
+        Thread.sleep(5);
+      }
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+    ctx.write();
   }
 
   private void handleResetRequest(ResetRequestTuple request, final AbstractLengthPrependerClient ctx) throws IOException
@@ -482,6 +490,7 @@ public class Server implements ServerListener
           try {
             handlePurgeRequest((PurgeRequestTuple)request, this);
           } catch (IOException io) {
+            eventloop.disconnect(this);
             throw new RuntimeException(io);
           }
           logger.info("{} {} Processed purge request: {}", this, ((SocketChannel)this.key.channel()).socket(), request);
