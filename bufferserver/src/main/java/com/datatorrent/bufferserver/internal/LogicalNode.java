@@ -140,6 +140,7 @@ public class LogicalNode implements DataListener
       for (PhysicalNode pn : physicalNodes) {
         if (pn.isBlocked()) {
           ready = pn.unblock() & ready;
+          logger.info("{} {} {}", this, pn, ready);
         }
       }
     }
@@ -256,6 +257,12 @@ public class LogicalNode implements DataListener
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
                   break;
 
+                case MessageType.BEGIN_WINDOW_VALUE:
+                case MessageType.END_WINDOW_VALUE:
+                  logger.info("{} {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset));
+                  ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  break;
+
                 default:
                   //logger.debug("sending data of type {}", MessageType.valueOf(data.buffer[data.dataOffset]));
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
@@ -284,6 +291,12 @@ public class LogicalNode implements DataListener
                 case MessageType.RESET_WINDOW_VALUE:
                   tuple = Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset);
                   baseSeconds = (long)tuple.getBaseSeconds() << 32;
+                  ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  break;
+
+                case MessageType.BEGIN_WINDOW_VALUE:
+                case MessageType.END_WINDOW_VALUE:
+                  logger.info("{} {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset));
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
                   break;
 

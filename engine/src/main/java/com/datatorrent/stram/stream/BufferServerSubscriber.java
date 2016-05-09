@@ -324,8 +324,8 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
               break;
 
             case END_WINDOW:
-              //logger.debug("received {}", data);
               o = new EndWindowTuple(baseSeconds | (lastWindowId = data.getWindowId()));
+              logger.info("{} {}", this, o);
               break;
 
             case END_STREAM:
@@ -334,6 +334,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
 
             case BEGIN_WINDOW:
               o = new Tuple(data.getType(), baseSeconds | data.getWindowId());
+              logger.info("{} {}", this, o);
               break;
 
             default:
