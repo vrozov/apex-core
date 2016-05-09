@@ -241,6 +241,7 @@ public class DataList
         switch (last.data[processingOffset]) {
           case MessageType.BEGIN_WINDOW_VALUE:
             Tuple bwt = Tuple.getTuple(last.data, processingOffset, size);
+            logger.info("{} {}", this, bwt);
             if (last.starting_window == -1) {
               last.starting_window = baseSeconds | bwt.getWindowId();
               last.ending_window = last.starting_window;
@@ -249,6 +250,10 @@ public class DataList
               last.ending_window = baseSeconds | bwt.getWindowId();
               //logger.debug("assigned last window id {}", last);
             }
+            break;
+
+          case MessageType.END_WINDOW_VALUE:
+            logger.info("{} {}", this, Tuple.getTuple(last.data, processingOffset, size));
             break;
 
           case MessageType.RESET_WINDOW_VALUE:

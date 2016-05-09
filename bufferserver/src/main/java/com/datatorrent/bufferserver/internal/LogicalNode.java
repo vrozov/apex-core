@@ -139,8 +139,11 @@ public class LogicalNode implements DataListener
       ready = true;
       for (PhysicalNode pn : physicalNodes) {
         if (pn.isBlocked()) {
-          ready = pn.unblock() & ready;
-          logger.info("{} {} {}", this, pn, ready);
+          final boolean unblock = pn.unblock();
+          if (unblock) {
+            logger.info("{} {} {}", this, pn, ready);
+          }
+          ready = unblock & ready;
         }
       }
     }

@@ -253,6 +253,12 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
     }
 
     @Override
+    public String toString()
+    {
+      return BufferServerSubscriber.this.toString() + " " + super.toString();
+    }
+
+    @Override
     public Tuple sweep()
     {
       final int size = size();
