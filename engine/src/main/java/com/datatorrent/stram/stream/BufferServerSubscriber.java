@@ -362,7 +362,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
         }
       }
 
-      return null;
+      return sweep();
     }
 
     protected Object processPayload(com.datatorrent.bufferserver.packet.Tuple data)
