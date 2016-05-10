@@ -175,7 +175,7 @@ public class DataList
   public void purge(final int baseSeconds, final int windowId)
   {
     final long longWindowId = (long)baseSeconds << 32 | windowId;
-    logger.debug("Purging {} from window ID {} to window ID {}", this, Codec.getStringWindowId(first.starting_window), Codec.getStringWindowId(longWindowId));
+    logger.info("Purging {} {} from window ID {} to window ID {}", this, all_listeners, Codec.getStringWindowId(first.starting_window), Codec.getStringWindowId(longWindowId));
 
     int numberOfInMemBlockPurged = 0;
     synchronized (this) {
