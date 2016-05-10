@@ -56,6 +56,7 @@ public class LogicalNode implements DataListener
   private final long skipWindowId;
   private long baseSeconds;
   private boolean caughtup;
+  private int count = 0;
 
   /**
    *
@@ -141,7 +142,13 @@ public class LogicalNode implements DataListener
         if (pn.isBlocked()) {
           final boolean unblock = pn.unblock();
           if (unblock) {
-            logger.info("{} {} {}", this, pn, ready);
+            logger.info("{} {} unblocked", this, pn);
+          } else {
+            count++;
+            if (count > 20) {
+              logger.info("{} {} blocked", this, pn);
+              count = 0;
+            }
           }
           ready = unblock & ready;
         }
@@ -262,8 +269,8 @@ public class LogicalNode implements DataListener
 
                 case MessageType.BEGIN_WINDOW_VALUE:
                 case MessageType.END_WINDOW_VALUE:
-                  logger.info("{} {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset));
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  logger.info("{} {} ready {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset), ready);
                   break;
 
                 default:
@@ -299,8 +306,8 @@ public class LogicalNode implements DataListener
 
                 case MessageType.BEGIN_WINDOW_VALUE:
                 case MessageType.END_WINDOW_VALUE:
-                  logger.info("{} {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset));
                   ready = GiveAll.getInstance().distribute(physicalNodes, data);
+                  logger.info("{} {} ready {}", this, Tuple.getTuple(data.buffer, data.dataOffset, data.length - data.dataOffset + data.offset), ready);
                   break;
 
                 default:

@@ -116,7 +116,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
         if (!suspended) {
           suspendRead();
           suspended = true;
-          logger.info("{} suspended {}", this, suspended);
+          logger.info("{} suspended {} {}", this, suspended, isReadSuspended());
         }
         int newsize = offeredFragments.capacity() == MAX_SENDBUFFER_SIZE ? offeredFragments.capacity() : offeredFragments.capacity() << 1;
         backlog.add(offeredFragments = new CircularBuffer<Slice>(newsize));
@@ -277,14 +277,16 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
 
       synchronized (backlog) {
         /* find out the minimum remaining capacity in all the other buffers and consume those many tuples from bufferserver */
+        if (offeredFragments == polledFragments) {
+          if (suspended) {
+            resumeRead();
+            suspended = false;
+            logger.info("{} size {} suspended {} {}", this, polledFragments.size(), suspended, isReadSuspended());
+          }
+        }
         int min = polledFragments.size();
         if (min == 0) {
           if (offeredFragments == polledFragments) {
-            if (suspended) {
-              resumeRead();
-              suspended = false;
-              logger.info("{} suspended {}", this, suspended);
-            }
             return null;
           }
           polledFragments = backlog.remove();
@@ -333,7 +335,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
 
             case END_WINDOW:
               o = new EndWindowTuple(baseSeconds | (lastWindowId = data.getWindowId()));
-              logger.info("{} {}", this, o);
+              logger.info("{} {} suspended {}", this, o, suspended);
               break;
 
             case END_STREAM:
@@ -342,7 +344,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
 
             case BEGIN_WINDOW:
               o = new Tuple(data.getType(), baseSeconds | data.getWindowId());
-              logger.info("{} {}", this, o);
+              logger.info("{} {} suspended {}", this, o, suspended);
               break;
 
             default:
