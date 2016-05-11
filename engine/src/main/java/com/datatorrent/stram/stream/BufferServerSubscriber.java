@@ -116,7 +116,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
         if (!suspended) {
           suspendRead();
           suspended = true;
-          logger.info("{} suspended {} {} {}", this, suspended, isReadSuspended(), offeredFragments);
+          logger.info("{} size {} suspended {} {}", this, offeredFragments.size(), suspended, isReadSuspended());
         }
         int newsize = offeredFragments.capacity() == MAX_SENDBUFFER_SIZE ? offeredFragments.capacity() : offeredFragments.capacity() << 1;
         backlog.add(offeredFragments = new CircularBuffer<Slice>(newsize));
@@ -262,107 +262,112 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
     @Override
     public Tuple sweep()
     {
-      final int size = size();
-      if (size > 0) {
-        for (int i = 0; i < size; i++) {
-          if (peekUnsafe() instanceof Tuple) {
-            count += i;
-            return (Tuple)peekUnsafe();
+      boolean sweepAgain = false;
+      do {
+        final int size = size();
+        if (size > 0) {
+          for (int i = 0; i < size; i++) {
+            if (peekUnsafe() instanceof Tuple) {
+              count += i;
+              return (Tuple)peekUnsafe();
+            }
+            sink.put(pollUnsafe());
           }
-          sink.put(pollUnsafe());
+
+          count += size;
         }
 
-        count += size;
-      }
-
-      synchronized (backlog) {
-        /* find out the minimum remaining capacity in all the other buffers and consume those many tuples from bufferserver */
-        if (offeredFragments == polledFragments) {
-          if (suspended) {
-            resumeRead();
-            suspended = false;
-            logger.info("{} size {} suspended {} {}", this, polledFragments.size(), suspended, isReadSuspended());
-          }
-        }
-        int min = polledFragments.size();
-        if (min == 0) {
+        synchronized (backlog) {
+          /* find out the minimum remaining capacity in all the other buffers and consume those many tuples from bufferserver */
           if (offeredFragments == polledFragments) {
-            return null;
+            if (suspended) {
+              resumeRead();
+              suspended = false;
+              logger.info("{} size {} suspended {} {}", this, polledFragments.size(), suspended, isReadSuspended());
+            }
           }
-          polledFragments = backlog.remove();
-          min = polledFragments.size();
-        }
-
-        for (int i = reservoirs.length; i-- > 0;) {
-          if (reservoirs[i].remainingCapacity() < min) {
-            min = reservoirs[i].remainingCapacity();
+          int min = polledFragments.size();
+          if (min == 0) {
+            if (offeredFragments == polledFragments) {
+              return null;
+            }
+            polledFragments = backlog.remove();
+            min = polledFragments.size();
           }
-        }
 
-        while (min-- > 0) {
-          Slice fm = polledFragments.pollUnsafe();
-          com.datatorrent.bufferserver.packet.Tuple data = com.datatorrent.bufferserver.packet.Tuple.getTuple(fm.buffer, fm.offset, fm.length);
-          Object o;
-          switch (data.getType()) {
-            case NO_MESSAGE:
-              freeFragments.offer(fm);
-              continue;
+          for (int i = reservoirs.length; i-- > 0; ) {
+            if (reservoirs[i].remainingCapacity() < min) {
+              min = reservoirs[i].remainingCapacity();
+            }
+          }
 
-            case CODEC_STATE:
-              dsp.state = data.getData();
-              freeFragments.offer(fm);
-              continue;
-
-            case RESET_WINDOW:
-              baseSeconds = (long)data.getBaseSeconds() << 32;
-              if (lastWindowId < WindowGenerator.MAX_WINDOW_ID) {
+          while (min-- > 0) {
+            Slice fm = polledFragments.pollUnsafe();
+            com.datatorrent.bufferserver.packet.Tuple data = com.datatorrent.bufferserver.packet.Tuple
+                .getTuple(fm.buffer, fm.offset, fm.length);
+            Object o;
+            switch (data.getType()) {
+              case NO_MESSAGE:
                 freeFragments.offer(fm);
                 continue;
+
+              case CODEC_STATE:
+                dsp.state = data.getData();
+                freeFragments.offer(fm);
+                continue;
+
+              case RESET_WINDOW:
+                baseSeconds = (long)data.getBaseSeconds() << 32;
+                if (lastWindowId < WindowGenerator.MAX_WINDOW_ID) {
+                  freeFragments.offer(fm);
+                  continue;
+                }
+                o = new ResetWindowTuple(baseSeconds | data.getWindowWidth());
+                break;
+
+              case PAYLOAD:
+                o = processPayload(data);
+                break;
+
+              case CHECKPOINT:
+                if (statefulSerde != null) {
+                  statefulSerde.resetState();
+                }
+                o = new CheckpointTuple(baseSeconds | data.getWindowId());
+                break;
+
+              case END_WINDOW:
+                o = new EndWindowTuple(baseSeconds | (lastWindowId = data.getWindowId()));
+                logger.info("{} {} suspended {}", this, o, suspended);
+                break;
+
+              case END_STREAM:
+                o = new EndStreamTuple(baseSeconds | data.getWindowId());
+                break;
+
+              case BEGIN_WINDOW:
+                o = new Tuple(data.getType(), baseSeconds | data.getWindowId());
+                logger.info("{} {} suspended {}", this, o, suspended);
+                break;
+
+              default:
+                throw new IllegalArgumentException("Unhandled Message Type " + data.getType());
+            }
+
+            freeFragments.offer(fm);
+            if (skipObject) {
+              skipObject = false;
+            } else {
+              sweepAgain = true;
+              for (int i = reservoirs.length; i-- > 0; ) {
+                reservoirs[i].add(o);
               }
-              o = new ResetWindowTuple(baseSeconds | data.getWindowWidth());
-              break;
-
-            case PAYLOAD:
-              o = processPayload(data);
-              break;
-
-            case CHECKPOINT:
-              if (statefulSerde != null) {
-                statefulSerde.resetState();
-              }
-              o = new CheckpointTuple(baseSeconds | data.getWindowId());
-              break;
-
-            case END_WINDOW:
-              o = new EndWindowTuple(baseSeconds | (lastWindowId = data.getWindowId()));
-              logger.info("{} {} suspended {}", this, o, suspended);
-              break;
-
-            case END_STREAM:
-              o = new EndStreamTuple(baseSeconds | data.getWindowId());
-              break;
-
-            case BEGIN_WINDOW:
-              o = new Tuple(data.getType(), baseSeconds | data.getWindowId());
-              logger.info("{} {} suspended {}", this, o, suspended);
-              break;
-
-            default:
-              throw new IllegalArgumentException("Unhandled Message Type " + data.getType());
-          }
-
-          freeFragments.offer(fm);
-          if (skipObject) {
-            skipObject = false;
-          } else {
-            for (int i = reservoirs.length; i-- > 0;) {
-              reservoirs[i].add(o);
             }
           }
         }
-      }
+      } while (sweepAgain);
 
-      return sweep();
+      return null;
     }
 
     protected Object processPayload(com.datatorrent.bufferserver.packet.Tuple data)
