@@ -538,14 +538,18 @@ public class Server implements ServerListener
     public void read(int len)
     {
       suspendReadIfResumed();
+      logger.error("{} {} {}", this, byteBuffer, buffer);
+    }
+
+    @Override
+    public void connected()
+    {
       try {
         ((SocketChannel)key.channel()).shutdownInput();
       } catch (IOException e) {
         logger.error("{}", this, e);
         throw new RuntimeException(e);
       }
-      logger.error("{} {} {}", this, byteBuffer, buffer);
-      throw new RuntimeException("Received unexpected data");
     }
 
     @Override
