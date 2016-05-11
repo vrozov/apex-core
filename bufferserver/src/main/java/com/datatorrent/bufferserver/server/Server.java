@@ -521,7 +521,7 @@ public class Server implements ServerListener
 
     Subscriber(String type, int mask, int[] partitions, int bufferSize)
     {
-      super(1024, bufferSize);
+      super(64, bufferSize);
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
@@ -532,6 +532,26 @@ public class Server implements ServerListener
     public void onMessage(byte[] buffer, int offset, int size)
     {
       logger.warn("Received data when no data is expected: {}", Arrays.toString(Arrays.copyOfRange(buffer, offset, offset + size)));
+    }
+
+    @Override
+    public void read(int len)
+    {
+      logger.error("{} {} {}", this, byteBuffer, buffer);
+      throw new RuntimeException("Received unexpected data");
+    }
+
+    @Override
+    public void connected()
+    {
+      try {
+        ((SocketChannel)key.channel()).shutdownInput();
+        suspendReadIfResumed();
+      } catch (IOException e) {
+        logger.error("{}", this, e);
+        throw new RuntimeException(e);
+      }
+      super.connected();
     }
 
     @Override
