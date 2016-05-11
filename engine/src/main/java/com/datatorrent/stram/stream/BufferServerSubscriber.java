@@ -92,7 +92,11 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
     if (eventloop == null) {
       super.disconnected();
     } else {
-      logger.error("{} disconnected unexpectedly");
+      if (key.isValid()) {
+        logger.error("{} {} disconnected unexpectedly", this, key.channel());
+      } else {
+        logger.error("{} disconnected unexpectedly", this);
+      }
       ((DefaultEventLoop)eventloop).stop();
     }
   }
