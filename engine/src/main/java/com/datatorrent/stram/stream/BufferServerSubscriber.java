@@ -31,6 +31,7 @@ import com.datatorrent.api.StreamCodec;
 
 import com.datatorrent.bufferserver.client.Subscriber;
 import com.datatorrent.bufferserver.util.Codec;
+import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.util.Slice;
 import com.datatorrent.netlet.EventLoop;
 import com.datatorrent.netlet.util.CircularBuffer;
@@ -83,6 +84,17 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
   {
     super.read(len);
     readByteCount.addAndGet(len);
+  }
+
+  @Override
+  public void disconnected()
+  {
+    if (eventloop == null) {
+      super.disconnected();
+    } else {
+      logger.error("{} disconnected unexpectedly");
+      ((DefaultEventLoop)eventloop).stop();
+    }
   }
 
   @Override
@@ -140,16 +152,6 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
       serde = (StreamCodec<Object>)codec;
     }
     baseSeconds = context.getFinishedWindowId() & 0xffffffff00000000L;
-  }
-
-  @Override
-  public void disconnected()
-  {
-    if (eventloop == null) {
-      super.disconnected();
-    } else {
-      throw new RuntimeException("Subscriber was disconnected unexpectedly");
-    }
   }
 
   @Override
