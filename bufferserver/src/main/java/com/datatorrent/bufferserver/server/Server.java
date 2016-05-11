@@ -542,7 +542,7 @@ public class Server implements ServerListener
     }
 
     @Override
-    public void connected()
+    public void registered(SelectionKey key)
     {
       try {
         ((SocketChannel)key.channel()).shutdownInput();
@@ -551,7 +551,7 @@ public class Server implements ServerListener
         logger.error("{}", this, e);
         throw new RuntimeException(e);
       }
-      super.connected();
+      super.registered(key);
     }
 
     @Override
