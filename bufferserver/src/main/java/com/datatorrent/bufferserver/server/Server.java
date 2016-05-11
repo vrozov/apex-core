@@ -553,7 +553,7 @@ public class Server implements ServerListener
     @Override
     public String toString()
     {
-      return "Server.Subscriber{" + "interestOps=" + this.key.interestOps() + ", type=" + type + ", mask=" + mask + ", partitions=" + (partitions == null ? "null" : Arrays.toString(partitions)) + '}';
+      return "Server.Subscriber{" + "write queue size=" + this.sendBuffer4Polls.size() + ", interestOps=" + this.key.interestOps() + ", type=" + type + ", mask=" + mask + ", partitions=" + (partitions == null ? "null" : Arrays.toString(partitions)) + '}';
     }
 
     private volatile boolean torndown;
