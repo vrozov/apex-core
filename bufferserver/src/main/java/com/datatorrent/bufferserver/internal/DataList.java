@@ -72,6 +72,7 @@ public class DataList
   private final AtomicInteger numberOfInMemBlockPermits;
   private MutableInt nextOffset = new MutableInt();
   private Future<?> future;
+  private long logged = Integer.MIN_VALUE;
 
   public DataList(final String identifier, final int blockSize, final int numberOfCacheBlocks)
   {
@@ -291,6 +292,10 @@ public class DataList
         public void run()
         {
           boolean atLeastOneListenerHasDataToSend = false;
+          if (logged + 120000 < System.currentTimeMillis()) {
+            logger.info("{} {}", this, all_listeners);
+            logged = System.currentTimeMillis();
+          }
           for (DataListener dl : all_listeners) {
             atLeastOneListenerHasDataToSend |= dl.addedData();
           }
@@ -371,6 +376,7 @@ public class DataList
 
   public void removeDataListener(DataListener dl)
   {
+    logger.info("{} {}", this, dl, new RuntimeException("getting stack trace"));
     ArrayList<BitVector> partitions = new ArrayList<BitVector>();
     if (dl.getPartitions(partitions) > 0) {
       for (BitVector partition : partitions) {

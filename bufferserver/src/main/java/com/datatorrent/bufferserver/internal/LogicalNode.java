@@ -56,7 +56,7 @@ public class LogicalNode implements DataListener
   private final long skipWindowId;
   private long baseSeconds;
   private boolean caughtup;
-  private int count = 0;
+  private long logged;
 
   /**
    *
@@ -142,12 +142,12 @@ public class LogicalNode implements DataListener
         if (pn.isBlocked()) {
           final boolean unblock = pn.unblock();
           if (unblock) {
+            logged = Integer.MIN_VALUE;
             logger.info("{} {} unblocked", this, pn);
           } else {
-            count++;
-            if (count > 20) {
+            if (logged + 120000 < System.currentTimeMillis()) {
               logger.info("{} {} blocked", this, pn);
-              count = 0;
+              logged = System.currentTimeMillis();
             }
           }
           ready = unblock & ready;
@@ -375,9 +375,15 @@ public class LogicalNode implements DataListener
   @Override
   public String toString()
   {
-    return "LogicalNode@" + Integer.toHexString(hashCode()) +
-        "identifier=" + identifier + ", upstream=" + upstream + ", group=" + group + ", partitions=" + partitions +
-        ", iterator=" + iterator + '}';
+    StringBuilder sb = new StringBuilder();
+    sb.append(", PhysicalNodes={");
+    for (PhysicalNode physicalNode : physicalNodes) {
+      sb.append(physicalNode.toString());
+    }
+    sb.append("}");
+    return "LogicalNode@" + Integer.toHexString(hashCode()) + ", ready=" + ready +
+        ", identifier=" + identifier + ", upstream=" + upstream + ", group=" + group + ", partitions=" + partitions +
+        ", iterator=" + iterator + '}' + sb.toString();
   }
 
   private static final Logger logger = LoggerFactory.getLogger(LogicalNode.class);

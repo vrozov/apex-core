@@ -159,7 +159,7 @@ public class PhysicalNode
   @Override
   public String toString()
   {
-    return "PhysicalNode." + client;
+    return "PhysicalNode." + client + ", blocked=" + isBlocked();
   }
 
   private static final Logger logger = LoggerFactory.getLogger(PhysicalNode.class);

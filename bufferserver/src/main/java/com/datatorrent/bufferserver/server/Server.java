@@ -558,7 +558,7 @@ public class Server implements ServerListener
 
     private void teardown()
     {
-      //logger.debug("Teardown is being called {}", torndown, new Exception());
+      logger.info("{} Teardown is being called {}", this, torndown, new Exception("getting stack trace"));
       if (torndown) {
         return;
       }
