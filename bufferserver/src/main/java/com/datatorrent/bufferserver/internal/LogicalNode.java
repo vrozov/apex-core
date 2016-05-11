@@ -56,7 +56,7 @@ public class LogicalNode implements DataListener
   private final long skipWindowId;
   private long baseSeconds;
   private boolean caughtup;
-  private long logged;
+  private long logged = Integer.MIN_VALUE;
 
   /**
    *
@@ -142,8 +142,7 @@ public class LogicalNode implements DataListener
         if (pn.isBlocked()) {
           final boolean unblock = pn.unblock();
           if (unblock) {
-            logged = Integer.MIN_VALUE;
-            logger.info("{} {} unblocked", this, pn);
+            logger.debug("{} {} unblocked", this, pn);
           } else {
             if (logged + 120000 < System.currentTimeMillis()) {
               logger.info("{} {} blocked", this, pn);

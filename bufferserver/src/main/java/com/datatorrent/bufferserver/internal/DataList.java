@@ -293,7 +293,7 @@ public class DataList
         {
           boolean atLeastOneListenerHasDataToSend = false;
           if (logged + 120000 < System.currentTimeMillis()) {
-            logger.info("{} {}", this, all_listeners);
+            logger.info("{} listeners {}", this, all_listeners);
             logged = System.currentTimeMillis();
           }
           for (DataListener dl : all_listeners) {
