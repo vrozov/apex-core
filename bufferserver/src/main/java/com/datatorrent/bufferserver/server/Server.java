@@ -537,6 +537,7 @@ public class Server implements ServerListener
     @Override
     public void unregistered(final SelectionKey key)
     {
+      logger.error("{} {} {}", this, key, key.channel());
       super.unregistered(key);
       teardown();
     }
@@ -544,14 +545,15 @@ public class Server implements ServerListener
     @Override
     public void handleException(Exception cce, EventLoop el)
     {
-      teardown();
+      logger.error("{} {} {}", this, key, key.channel(), cce);
       super.handleException(cce, el);
+      teardown();
     }
 
     @Override
     public String toString()
     {
-      return "Server.Subscriber{" + "type=" + type + ", mask=" + mask + ", partitions=" + (partitions == null ? "null" : Arrays.toString(partitions)) + '}';
+      return "Server.Subscriber{" + "interestOps=" + this.key.interestOps() + ", type=" + type + ", mask=" + mask + ", partitions=" + (partitions == null ? "null" : Arrays.toString(partitions)) + '}';
     }
 
     private volatile boolean torndown;
