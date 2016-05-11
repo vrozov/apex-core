@@ -270,13 +270,16 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
 
       synchronized (backlog) {
         /* find out the minimum remaining capacity in all the other buffers and consume those many tuples from bufferserver */
+        if (offeredFragments == polledFragments) {
+          if (suspended) {
+            resumeRead();
+            suspended = false;
+            logger.info("{} size {} suspended {} {}", this, polledFragments.size(), suspended, isReadSuspended());
+          }
+        }
         int min = polledFragments.size();
         if (min == 0) {
           if (offeredFragments == polledFragments) {
-            if (suspended) {
-              resumeRead();
-              suspended = false;
-            }
             return null;
           }
           polledFragments = backlog.remove();
@@ -351,7 +354,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
         }
       }
 
-      return null;
+      return sweep();
     }
 
     protected Object processPayload(com.datatorrent.bufferserver.packet.Tuple data)
