@@ -537,13 +537,6 @@ public class Server implements ServerListener
     @Override
     public void read(int len)
     {
-      logger.error("{} {} {}", this, byteBuffer, buffer);
-      throw new RuntimeException("Received unexpected data");
-    }
-
-    @Override
-    public void registered(SelectionKey key)
-    {
       suspendReadIfResumed();
       try {
         ((SocketChannel)key.channel()).shutdownInput();
@@ -551,13 +544,14 @@ public class Server implements ServerListener
         logger.error("{}", this, e);
         throw new RuntimeException(e);
       }
-      super.registered(key);
+      logger.error("{} {} {}", this, byteBuffer, buffer);
+      throw new RuntimeException("Received unexpected data");
     }
 
     @Override
     public void unregistered(final SelectionKey key)
     {
-      logger.error("{} {} {}", this, key, key.channel());
+      logger.info("{} {} {}", this, key, key.channel());
       super.unregistered(key);
       teardown();
     }
@@ -566,8 +560,8 @@ public class Server implements ServerListener
     public void handleException(Exception cce, EventLoop el)
     {
       logger.error("{} {} {}", this, key, key.channel(), cce);
-      super.handleException(cce, el);
       teardown();
+      super.handleException(cce, el);
     }
 
     @Override
