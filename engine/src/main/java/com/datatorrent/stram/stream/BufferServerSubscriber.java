@@ -143,9 +143,20 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
   }
 
   @Override
+  public void disconnected()
+  {
+    if (eventloop == null) {
+      super.disconnected();
+    } else {
+      throw new RuntimeException("Subscriber was disconnected unexpectedly");
+    }
+  }
+
+  @Override
   public void deactivate()
   {
     eventloop.disconnect(this);
+    eventloop = null;
     setToken(null);
   }
 

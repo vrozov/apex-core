@@ -544,9 +544,9 @@ public class Server implements ServerListener
     @Override
     public void registered(SelectionKey key)
     {
+      suspendReadIfResumed();
       try {
         ((SocketChannel)key.channel()).shutdownInput();
-        suspendReadIfResumed();
       } catch (IOException e) {
         logger.error("{}", this, e);
         throw new RuntimeException(e);
