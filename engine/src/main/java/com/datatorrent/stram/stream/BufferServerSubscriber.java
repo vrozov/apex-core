@@ -116,7 +116,7 @@ public class BufferServerSubscriber extends Subscriber implements ByteCounterStr
         if (!suspended) {
           suspendRead();
           suspended = true;
-          logger.info("{} suspended {} {}", this, suspended, isReadSuspended());
+          logger.info("{} suspended {} {} {}", this, suspended, isReadSuspended(), offeredFragments);
         }
         int newsize = offeredFragments.capacity() == MAX_SENDBUFFER_SIZE ? offeredFragments.capacity() : offeredFragments.capacity() << 1;
         backlog.add(offeredFragments = new CircularBuffer<Slice>(newsize));
