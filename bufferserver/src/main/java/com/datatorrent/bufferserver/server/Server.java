@@ -482,8 +482,13 @@ public class Server implements ServerListener
             };
           }
           key.attach(subscriber);
-          key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+          key.interestOps(SelectionKey.OP_WRITE);
           subscriber.registered(key);
+          try {
+            ((SocketChannel)key.channel()).shutdownInput();
+          } catch (IOException e) {
+            logger.error("{}", this, e);
+          }
 
           handleSubscriberRequest(subscriberRequest, subscriber);
           break;
@@ -537,20 +542,7 @@ public class Server implements ServerListener
     @Override
     public void read(int len)
     {
-      suspendReadIfResumed();
       logger.error("{} {} {}", this, byteBuffer, buffer);
-    }
-
-    @Override
-    public void connected()
-    {
-      suspendReadIfResumed();
-      try {
-        ((SocketChannel)key.channel()).shutdownInput();
-      } catch (IOException e) {
-        logger.error("{}", this, e);
-        throw new RuntimeException(e);
-      }
     }
 
     @Override
