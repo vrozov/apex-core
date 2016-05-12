@@ -559,6 +559,11 @@ public class Server implements ServerListener
     {
       logger.error("{} {} {}", this, key, key.channel(), cce);
       if ((cce instanceof IOException) && (--retries > 0)) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          logger.error("{} sleep interrupted", this, e);
+        }
         return;
       }
       teardown();
