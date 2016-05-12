@@ -523,6 +523,7 @@ public class Server implements ServerListener
     private final String type;
     private final int mask;
     private final int[] partitions;
+    private int retries = 3;
 
     Subscriber(String type, int mask, int[] partitions, int bufferSize)
     {
@@ -557,6 +558,9 @@ public class Server implements ServerListener
     public void handleException(Exception cce, EventLoop el)
     {
       logger.error("{} {} {}", this, key, key.channel(), cce);
+      if ((cce instanceof IOException) && (--retries > 0)) {
+        return;
+      }
       teardown();
       super.handleException(cce, el);
     }
