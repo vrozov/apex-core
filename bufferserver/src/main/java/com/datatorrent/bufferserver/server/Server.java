@@ -485,7 +485,8 @@ public class Server implements ServerListener
           key.interestOps(SelectionKey.OP_WRITE);
           subscriber.registered(key);
           try {
-            ((SocketChannel)key.channel()).shutdownInput();
+            final SocketChannel channel = (SocketChannel)key.channel();
+            channel.shutdownInput();
           } catch (IOException e) {
             logger.error("{}", this, e);
           }
