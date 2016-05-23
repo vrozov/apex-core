@@ -52,6 +52,7 @@ import com.datatorrent.bufferserver.packet.Tuple;
 import com.datatorrent.bufferserver.storage.Storage;
 import com.datatorrent.common.util.NameableThreadFactory;
 import com.datatorrent.netlet.AbstractLengthPrependerClient;
+import com.datatorrent.netlet.AbstractReadOnlyLengthPrependerClient;
 import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.EventLoop;
 import com.datatorrent.netlet.Listener.ServerListener;
@@ -171,8 +172,8 @@ public class Server implements ServerListener
 
   private final HashMap<String, DataList> publisherBuffers = new HashMap<String, DataList>();
   private final ConcurrentHashMap<String, LogicalNode> subscriberGroups = new ConcurrentHashMap<String, LogicalNode>();
-  private final ConcurrentHashMap<String, AbstractLengthPrependerClient> publisherChannels = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, AbstractLengthPrependerClient> subscriberChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, ClientListener> publisherChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, ClientListener> subscriberChannels = new ConcurrentHashMap<>();
   private final int blockSize;
   private final int numberOfCacheBlocks;
 
@@ -208,7 +209,7 @@ public class Server implements ServerListener
     if (dl == null) {
       message = ("Invalid identifier '" + request.getIdentifier() + "'").getBytes();
     } else {
-      AbstractLengthPrependerClient channel = publisherChannels.remove(request.getIdentifier());
+      ClientListener channel = publisherChannels.remove(request.getIdentifier());
       if (channel != null) {
         eventloop.disconnect(channel);
       }
@@ -246,7 +247,7 @@ public class Server implements ServerListener
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      AbstractLengthPrependerClient previous = subscriberChannels.put(identifier, connection);
+      ClientListener previous = subscriberChannels.put(identifier, connection);
       if (previous != null) {
         eventloop.disconnect(previous);
       }
@@ -322,7 +323,7 @@ public class Server implements ServerListener
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      AbstractLengthPrependerClient previous = publisherChannels.put(identifier, connection);
+      ClientListener previous = publisherChannels.put(identifier, connection);
       if (previous != null) {
         eventloop.disconnect(previous);
       }
@@ -443,8 +444,8 @@ public class Server implements ServerListener
           }
 
           key.attach(publisher);
-          key.interestOps(SelectionKey.OP_READ);
           publisher.registered(key);
+          publisher.connected();
 
           int len = writeOffset - readOffset - size;
           if (len > 0) {
@@ -578,7 +579,7 @@ public class Server implements ServerListener
       LogicalNode ln = subscriberGroups.get(type);
       if (ln != null) {
         if (subscriberChannels.containsValue(this)) {
-          final Iterator<Entry<String, AbstractLengthPrependerClient>> i = subscriberChannels.entrySet().iterator();
+          final Iterator<Entry<String, ClientListener>> i = subscriberChannels.entrySet().iterator();
           while (i.hasNext()) {
             if (i.next().getValue() == this) {
               i.remove();
@@ -606,14 +607,14 @@ public class Server implements ServerListener
    * this is the end on the server side which handles all the communication.
    *
    */
-  class Publisher extends SeedDataClient
+  class Publisher extends AbstractReadOnlyLengthPrependerClient
   {
     private final DataList datalist;
     boolean dirty;
 
     Publisher(DataList dl, long windowId)
     {
-      super(dl.getBuffer(windowId), dl.getPosition(), 1024);
+      super(dl.getBuffer(windowId), dl.getPosition());
       this.datalist = dl;
     }
 
@@ -803,7 +804,7 @@ public class Server implements ServerListener
        * with the same identifier as the one which just died.
        */
       if (publisherChannels.containsValue(this)) {
-        final Iterator<Entry<String, AbstractLengthPrependerClient>> i = publisherChannels.entrySet().iterator();
+        final Iterator<Entry<String, ClientListener>> i = publisherChannels.entrySet().iterator();
         while (i.hasNext()) {
           if (i.next().getValue() == this) {
             i.remove();
@@ -827,6 +828,23 @@ public class Server implements ServerListener
       }
     }
 
+    public void transferBuffer(byte[] array, int offset, int len)
+    {
+      int remainingCapacity;
+      do {
+        remainingCapacity = buffer.length - writeOffset;
+        if (len < remainingCapacity) {
+          remainingCapacity = len;
+          byteBuffer.position(writeOffset + remainingCapacity);
+        } else {
+          byteBuffer.position(buffer.length);
+        }
+        System.arraycopy(array, offset, buffer, writeOffset, remainingCapacity);
+        read(remainingCapacity);
+
+        offset += remainingCapacity;
+      } while ((len -= remainingCapacity) > 0);
+    }
   }
 
   abstract class SeedDataClient extends AbstractLengthPrependerClient

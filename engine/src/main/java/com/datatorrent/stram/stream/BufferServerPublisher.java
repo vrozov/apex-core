@@ -121,7 +121,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
         if (dsp.state != null) {
           array = DataTuple.getSerializedTuple(MessageType.CODEC_STATE_VALUE, dsp.state);
           try {
-            while (!write(array)) {
+            while (!send(array)) {
               sleep(5);
             }
           } catch (InterruptedException ie) {
@@ -136,7 +136,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
     }
 
     try {
-      while (!write(array)) {
+      while (!send(array)) {
         sleep(5);
       }
       publishedByteCount.addAndGet(array.length);
@@ -167,12 +167,6 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   {
     setToken(null);
     eventloop.disconnect(this);
-  }
-
-  @Override
-  public void onMessage(byte[] buffer, int offset, int size)
-  {
-    throw new RuntimeException("OutputStream is not supposed to receive anything!");
   }
 
   @Override
