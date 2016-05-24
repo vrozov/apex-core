@@ -42,7 +42,7 @@ public abstract class Publisher extends AbstractWriteOnlyLengthPrependerClient
 
   public Publisher(String id, int sendBufferCapacity)
   {
-    super(64 * 1024, sendBufferCapacity);
+    super(128 * 1024, sendBufferCapacity);
     this.id = id;
   }
 
