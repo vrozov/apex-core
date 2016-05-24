@@ -122,7 +122,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
           array = DataTuple.getSerializedTuple(MessageType.CODEC_STATE_VALUE, dsp.state);
           try {
             while (!send(array)) {
-              sleep(5);
+              sleep(0);
             }
           } catch (InterruptedException ie) {
             throw new RuntimeException(ie);
@@ -137,7 +137,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
 
     try {
       while (!send(array)) {
-        sleep(5);
+        sleep(0);
       }
       publishedByteCount.addAndGet(array.length);
     } catch (InterruptedException ie) {
