@@ -33,7 +33,6 @@ import com.datatorrent.netlet.Listener;
  */
 public class PhysicalNode
 {
-  public static final int BUFFER_SIZE = 8 * 1024;
   private final long starttime;
   private final AbstractWriteOnlyLengthPrependerClient client;
   private final long processedMessageCount;

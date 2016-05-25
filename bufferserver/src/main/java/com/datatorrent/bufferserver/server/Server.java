@@ -480,7 +480,7 @@ public class Server implements ServerListener
                 subscriberRequest.getPartitions(), bufferSize);
           }
           key.attach(subscriber);
-          key.interestOps(SelectionKey.OP_WRITE);
+          key.interestOps(0);
           subscriber.registered(key);
           subscriber.connected();
 
