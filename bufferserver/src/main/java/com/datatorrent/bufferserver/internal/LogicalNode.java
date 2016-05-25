@@ -32,7 +32,7 @@ import com.datatorrent.bufferserver.policy.Policy;
 import com.datatorrent.bufferserver.util.BitVector;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.bufferserver.util.SerializedData;
-import com.datatorrent.netlet.AbstractLengthPrependerClient;
+import com.datatorrent.netlet.AbstractWriteOnlyLengthPrependerClient;
 import com.datatorrent.netlet.EventLoop;
 
 /**
@@ -99,7 +99,7 @@ public class LogicalNode implements DataListener
    *
    * @param connection
    */
-  public void addConnection(AbstractLengthPrependerClient connection)
+  public void addConnection(AbstractWriteOnlyLengthPrependerClient connection)
   {
     PhysicalNode pn = new PhysicalNode(connection);
     if (!physicalNodes.contains(pn)) {
@@ -111,7 +111,7 @@ public class LogicalNode implements DataListener
    *
    * @param client
    */
-  public void removeChannel(AbstractLengthPrependerClient client)
+  public void removeChannel(AbstractWriteOnlyLengthPrependerClient client)
   {
     for (PhysicalNode pn : physicalNodes) {
       if (pn.getClient() == client) {

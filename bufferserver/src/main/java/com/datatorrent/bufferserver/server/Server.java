@@ -53,6 +53,7 @@ import com.datatorrent.bufferserver.storage.Storage;
 import com.datatorrent.common.util.NameableThreadFactory;
 import com.datatorrent.netlet.AbstractLengthPrependerClient;
 import com.datatorrent.netlet.AbstractReadOnlyLengthPrependerClient;
+import com.datatorrent.netlet.AbstractWriteOnlyLengthPrependerClient;
 import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.EventLoop;
 import com.datatorrent.netlet.Listener.ServerListener;
@@ -234,7 +235,7 @@ public class Server implements ServerListener
    * @return
    */
   public LogicalNode handleSubscriberRequest(SubscribeRequestTuple request,
-      final AbstractLengthPrependerClient connection)
+      final AbstractWriteOnlyLengthPrependerClient connection)
   {
     String identifier = request.getIdentifier();
     String type = request.getStreamType();
@@ -464,7 +465,7 @@ public class Server implements ServerListener
           logger.info("Received subscriber request: {}", request);
 
           SubscribeRequestTuple subscriberRequest = (SubscribeRequestTuple)request;
-          AbstractLengthPrependerClient subscriber;
+          AbstractWriteOnlyLengthPrependerClient subscriber;
 
 //          /* for backward compatibility - set the buffer size to 16k - EXPERIMENTAL */
           int bufferSize = subscriberRequest.getBufferSize();
@@ -476,24 +477,12 @@ public class Server implements ServerListener
                 subscriberRequest.getPartitions(), bufferSize);
           } else {
             subscriber = new Subscriber(subscriberRequest.getStreamType(), subscriberRequest.getMask(),
-                subscriberRequest.getPartitions(), bufferSize)
-            {
-              @Override
-              public int readSize()
-              {
-                if (writeOffset - readOffset < 2) {
-                  return -1;
-                }
-
-                short s = buffer[readOffset++];
-                return s | (buffer[readOffset++] << 8);
-              }
-
-            };
+                subscriberRequest.getPartitions(), bufferSize);
           }
           key.attach(subscriber);
-          key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+          key.interestOps(SelectionKey.OP_WRITE);
           subscriber.registered(key);
+          subscriber.connected();
 
           handleSubscriberRequest(subscriberRequest, subscriber);
           break;
@@ -523,7 +512,7 @@ public class Server implements ServerListener
 
   }
 
-  class Subscriber extends AbstractLengthPrependerClient
+  class Subscriber extends AbstractWriteOnlyLengthPrependerClient
   {
     private final String type;
     private final int mask;
@@ -531,18 +520,11 @@ public class Server implements ServerListener
 
     Subscriber(String type, int mask, int[] partitions, int bufferSize)
     {
-      super(1024, bufferSize);
+      super(128 * 1024, bufferSize);
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
       super.write = false;
-    }
-
-    @Override
-    public void onMessage(byte[] buffer, int offset, int size)
-    {
-      logger.warn("Received data when no data is expected: {}",
-          Arrays.toString(Arrays.copyOfRange(buffer, offset, offset + size)));
     }
 
     @Override
