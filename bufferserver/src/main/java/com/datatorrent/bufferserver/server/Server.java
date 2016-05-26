@@ -520,7 +520,7 @@ public class Server implements ServerListener
 
     Subscriber(String type, int mask, int[] partitions, int bufferSize)
     {
-      super(256 * 1024, 64 * 1024);
+      super(64 * 1024, 32 * 1024);
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;

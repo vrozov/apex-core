@@ -51,6 +51,7 @@ public abstract class Subscriber extends AuthClient
   {
     sendAuthenticate();
     write(getSerializedRequest(version, id, type, sourceId, mask, partitions, windowId, bufferSize));
+    logger.info("{} bufferSize {}, windowId {}", this, bufferSize, windowId);
   }
 
   @Override
