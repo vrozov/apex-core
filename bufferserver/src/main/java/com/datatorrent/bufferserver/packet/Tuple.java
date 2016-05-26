@@ -106,7 +106,7 @@ public abstract class Tuple
         if (!srt.isValid()) {
           logger.error("Unparseable Subscriber Request Tuple received!");
         } else {
-          logger.info("{}", srt);
+          logger.info("{} {}", srt, Arrays.copyOfRange(buffer, offset, offset + length));
         }
         return srt;
 
