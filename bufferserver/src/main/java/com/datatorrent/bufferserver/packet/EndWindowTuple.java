@@ -34,14 +34,14 @@ public class EndWindowTuple extends WindowIdTuple
     }
   }
 
-  public static byte[] getSerializedTuple(int windowId)
-  {
-    return serializedTuples[windowId % serializedTuples.length];
-  }
-
   public EndWindowTuple(byte[] array, int offset, int length)
   {
     super(array, offset, length);
+  }
+
+  public static byte[] getSerializedTuple(int windowId)
+  {
+    return serializedTuples[windowId % serializedTuples.length];
   }
 
 }

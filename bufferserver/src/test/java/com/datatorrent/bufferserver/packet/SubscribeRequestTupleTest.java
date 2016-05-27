@@ -40,16 +40,17 @@ public class SubscribeRequestTupleTest
     String id = "SubscriberId";
     String down_type = "SubscriberId/StreamType";
     String upstream_id = "PublisherId";
-    int mask = 7;
-    ArrayList<Integer> partitions = new ArrayList<Integer>();
-    partitions.add(5);
+    int mask = 0;
+    ArrayList<Integer> partitions = null; //new ArrayList<Integer>();
+    //partitions.add(5);
     long startingWindowId = 0xcafebabe00000078L;
-    byte[] serial = getSerializedRequest(null, id, down_type, upstream_id, mask, partitions, startingWindowId, 0);
+    byte[] serial = getSerializedRequest(null, id, down_type, upstream_id, mask, partitions, startingWindowId, 32 * 1024);
     SubscribeRequestTuple tuple = (SubscribeRequestTuple)Tuple.getTuple(serial, 0, serial.length);
     assertEquals(tuple.getIdentifier(), id, "Identifier");
     assertEquals(tuple.getStreamType(), down_type, "UpstreamType");
     assertEquals(tuple.getUpstreamIdentifier(), upstream_id, "UpstreamId");
     assertEquals(tuple.getMask(), mask, "Mask");
+    assertEquals(tuple.getBufferSize(), 32 * 1024, "BufferSize");
 
     int[] parts = tuple.getPartitions();
     assertTrue(parts != null && parts.length == 1 && parts[0] == 5);
