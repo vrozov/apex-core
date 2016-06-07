@@ -524,7 +524,7 @@ public class Server implements ServerListener
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
-      super.write = false;
+      super.isWriteEnabled = false;
     }
 
     @Override
