@@ -18,6 +18,7 @@
  */
 package com.datatorrent.stram.stream;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -35,6 +36,7 @@ import com.datatorrent.bufferserver.packet.PayloadTuple;
 import com.datatorrent.bufferserver.packet.ResetWindowTuple;
 import com.datatorrent.bufferserver.packet.WindowIdTuple;
 import com.datatorrent.bufferserver.util.Codec;
+import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.EventLoop;
 import com.datatorrent.stram.codec.StatefulStreamCodec;
 import com.datatorrent.stram.codec.StatefulStreamCodec.DataStatePair;
@@ -58,7 +60,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
 {
   private StreamCodec<Object> serde;
   private final AtomicLong publishedByteCount;
-  private EventLoop eventloop;
+  private DefaultEventLoop eventloop;
   private int count;
   private StatefulStreamCodec<Object> statefulSerde;
 
@@ -159,7 +161,12 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
   {
     setToken(context.get(StreamContext.BUFFER_SERVER_TOKEN));
     InetSocketAddress address = context.getBufferServerAddress();
-    eventloop = context.get(StreamContext.EVENT_LOOP);
+    try {
+      eventloop = DefaultEventLoop.createEventLoop("Publisher");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    eventloop.start();
     eventloop.connect(address.isUnresolved() ? new InetSocketAddress(address.getHostName(), address.getPort()) : address, this);
 
     logger.debug("Registering publisher: {} {} windowId={} server={}", new Object[] {context.getSourceId(), context.getId(), Codec.getStringWindowId(context.getFinishedWindowId()), context.getBufferServerAddress()});
