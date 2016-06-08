@@ -124,7 +124,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
             int sleep = 0;
             while (!send(array)) {
               sleep(sleep);
-              sleep = Math.max(sleep + 1, 10);
+              sleep = Math.min(sleep + 1, 10);
             }
           } catch (InterruptedException ie) {
             throw new RuntimeException(ie);
@@ -141,7 +141,7 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
       int sleep = 0;
       while (!send(array)) {
         sleep(sleep);
-        sleep = Math.max(sleep + 1, 10);
+        sleep = Math.min(sleep + 1, 10);
       }
       publishedByteCount.addAndGet(array.length);
     } catch (InterruptedException ie) {
