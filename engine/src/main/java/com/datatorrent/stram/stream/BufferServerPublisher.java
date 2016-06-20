@@ -20,6 +20,7 @@ package com.datatorrent.stram.stream;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
@@ -113,7 +114,11 @@ public class BufferServerPublisher extends Publisher implements ByteCounterStrea
       }
     } else {
       if (statefulSerde == null) {
-        array = PayloadTuple.getSerializedTuple(serde.getPartition(payload), serde.toByteArray(payload));
+        //array = PayloadTuple.getSerializedTuple(serde.getPartition(payload), serde.toByteArray(payload));
+        array = serde.toByteArray(payload).buffer;
+        ByteBuffer byteBuffer = ByteBuffer.wrap(array);
+        byteBuffer.put(MessageType.PAYLOAD_VALUE);
+        byteBuffer.putInt(serde.getPartition(payload));
       } else {
         DataStatePair dsp = statefulSerde.toDataStatePair(payload);
         /*
