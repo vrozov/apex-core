@@ -206,7 +206,7 @@ public class NodeTest
     attributeMap.put(OperatorContext.STORAGE_AGENT, new StorageAgentImpl());
     attributeMap.put(OperatorContext.STATELESS, true);
     Node<StatelessOperator> node = new Node<StatelessOperator>(new StatelessOperator(),
-        new com.datatorrent.stram.engine.OperatorContext(0,"operator", attributeMap, null))
+        new com.datatorrent.stram.engine.OperatorContext(0, attributeMap, null))
     {
       @Override
       public void connectInputPort(String port, SweepableReservoir reservoir)
@@ -239,7 +239,7 @@ public class NodeTest
     DefaultAttributeMap attributeMap = new DefaultAttributeMap();
     attributeMap.put(OperatorContext.STORAGE_AGENT, new StorageAgentImpl());
     Node<TestGenericOperator> node = new Node<TestGenericOperator>(new TestGenericOperator(),
-        new com.datatorrent.stram.engine.OperatorContext(0, "operator", attributeMap, null))
+        new com.datatorrent.stram.engine.OperatorContext(0, attributeMap, null))
     {
       @Override
       public void connectInputPort(String port, SweepableReservoir reservoir)
@@ -292,10 +292,9 @@ public class NodeTest
     final Node in;
 
     if (trueGenericFalseInput) {
-      in = new GenericNode(gco, new com.datatorrent.stram.engine.OperatorContext(0, "operator", dam, null));
+      in = new GenericNode(gco, new com.datatorrent.stram.engine.OperatorContext(0, dam, null));
     } else {
-      in = new InputNode((InputCheckpointOperator)gco, new com.datatorrent.stram.engine.OperatorContext(0, "operator",
-          dam, null));
+      in = new InputNode((InputCheckpointOperator)gco, new com.datatorrent.stram.engine.OperatorContext(0, dam, null));
     }
 
     in.setId(1);

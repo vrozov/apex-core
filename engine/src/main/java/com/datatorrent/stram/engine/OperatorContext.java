@@ -21,12 +21,8 @@ package com.datatorrent.stram.engine;
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 
-import javax.validation.constraints.NotNull;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 import com.datatorrent.api.Attribute.AttributeMap;
 import com.datatorrent.api.Context;
@@ -86,16 +82,27 @@ public class OperatorContext extends BaseContext implements Context.OperatorCont
   /**
    *
    * @param id the value of id
+   * @param attributes the value of attributes
+   * @param parentContext
+   */
+  public OperatorContext(int id, AttributeMap attributes, Context parentContext)
+  {
+    this(id, null, attributes, parentContext);
+  }
+
+  /**
+   *
+   * @param id the value of id
    * @param name name of the operator
    * @param attributes the value of attributes
    * @param parentContext
    */
-  public OperatorContext(int id, @NotNull String name, AttributeMap attributes, Context parentContext)
+  public OperatorContext(int id, String name, AttributeMap attributes, Context parentContext)
   {
     super(attributes, parentContext);
     this.lastProcessedWindowId = Stateless.WINDOW_ID;
     this.id = id;
-    this.name = Preconditions.checkNotNull(name, "operator name");
+    this.name = name;
     this.stateless = super.getValue(OperatorContext.STATELESS);
   }
 
