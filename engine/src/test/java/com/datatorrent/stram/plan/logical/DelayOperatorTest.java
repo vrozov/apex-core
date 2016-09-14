@@ -325,7 +325,13 @@ public class DelayOperatorTest
       @Override
       public Boolean call() throws Exception
       {
-        return FibonacciOperator.results.size() >= 10;
+        if (FibonacciOperator.results.size() >= 10) {
+          LOG.info("result size {}", FibonacciOperator.results.size());
+          return true;
+        } else {
+          LOG.debug("result size {}", FibonacciOperator.results.size());
+          return false;
+        }
       }
     });
     localCluster.run(10000);
@@ -359,7 +365,13 @@ public class DelayOperatorTest
       @Override
       public Boolean call() throws Exception
       {
-        return FailableFibonacciOperator.results.size() >= 30;
+        if (FibonacciOperator.results.size() >= 30) {
+          LOG.info("result size {}", FibonacciOperator.results.size());
+          return true;
+        } else {
+          LOG.debug("result size {}", FibonacciOperator.results.size());
+          return false;
+        }
       }
     });
     localCluster.run(60000);
@@ -394,7 +406,13 @@ public class DelayOperatorTest
       @Override
       public Boolean call() throws Exception
       {
-        return FibonacciOperator.results.size() >= 30;
+        if (FibonacciOperator.results.size() >= 30) {
+          LOG.info("result size {}", FibonacciOperator.results.size());
+          return true;
+        } else {
+          LOG.debug("result size {}", FibonacciOperator.results.size());
+          return false;
+        }
       }
     });
     localCluster.run(60000);
