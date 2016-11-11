@@ -18,7 +18,6 @@
  */
 package com.datatorrent.bufferserver.support;
 
-import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,15 +37,9 @@ public class Publisher extends com.datatorrent.bufferserver.client.Publisher
     return "BufferServerPublisher";
   }
 
-  @Override
-  public void onMessage(byte[] buffer, int offset, int size)
-  {
-    logger.warn("received data when unexpected {}", Arrays.toString(Arrays.copyOfRange(buffer, offset, size)));
-  }
-
   public void publishMessage(byte[] payload)
   {
-    write(payload);
+    send(payload);
   }
 
   public void activate(String version, int baseSeconds, int windowId)
