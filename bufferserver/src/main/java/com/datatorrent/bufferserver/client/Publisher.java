@@ -23,24 +23,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datatorrent.bufferserver.packet.PublishRequestTuple;
+import com.datatorrent.netlet.WriteOnlyLengthPrependerClient;
 
 /**
  * <p>Abstract Publisher class.</p>
  *
  * @since 0.3.2
  */
-public abstract class Publisher extends AuthClient
+public abstract class Publisher extends WriteOnlyLengthPrependerClient
 {
+  private byte[] token;
   private final String id;
 
   public Publisher(String id)
   {
-    this(id, 1024);
+    this(id, 32 * 1024);
   }
 
   public Publisher(String id, int sendBufferCapacity)
   {
-    super(1024, sendBufferCapacity);
+    super(128 * 1024, sendBufferCapacity);
     this.id = id;
   }
 
@@ -50,8 +52,15 @@ public abstract class Publisher extends AuthClient
    */
   public void activate(String version, long windowId)
   {
-    sendAuthenticate();
-    write(PublishRequestTuple.getSerializedRequest(version, id, windowId));
+    if (token != null) {
+      send(token);
+    }
+    send(PublishRequestTuple.getSerializedRequest(version, id, windowId));
+  }
+
+  public void setToken(byte[] token)
+  {
+    this.token = token;
   }
 
   @Override

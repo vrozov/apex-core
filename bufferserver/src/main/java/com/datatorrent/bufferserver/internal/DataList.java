@@ -41,7 +41,7 @@ import com.datatorrent.bufferserver.util.BitVector;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.bufferserver.util.SerializedData;
 import com.datatorrent.bufferserver.util.VarInt;
-import com.datatorrent.netlet.AbstractClient;
+import com.datatorrent.netlet.AbstractClientListener;
 import com.datatorrent.netlet.util.VarInt.MutableInt;
 
 import static com.google.common.collect.Maps.newHashMap;
@@ -68,7 +68,7 @@ public class DataList
   protected int size;
   protected int processingOffset;
   protected long baseSeconds;
-  private final Set<AbstractClient> suspendedClients = newHashSet();
+  private final Set<AbstractClientListener> suspendedClients = newHashSet();
   private final AtomicInteger numberOfInMemBlockPermits;
   private MutableInt nextOffset = new MutableInt();
   private Future<?> future;
@@ -390,7 +390,7 @@ public class DataList
     all_listeners.remove(dl);
   }
 
-  public boolean suspendRead(final AbstractClient client)
+  public boolean suspendRead(final AbstractClientListener client)
   {
     synchronized (suspendedClients) {
       return suspendedClients.add(client) && client.suspendReadIfResumed();
@@ -402,7 +402,7 @@ public class DataList
     boolean resumedSuspendedClients = false;
     if (numberOfInMemBlockPermits > 0) {
       synchronized (suspendedClients) {
-        for (AbstractClient client : suspendedClients) {
+        for (AbstractClientListener client : suspendedClients) {
           resumedSuspendedClients |= client.resumeReadIfSuspended();
         }
         suspendedClients.clear();
