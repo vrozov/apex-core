@@ -51,9 +51,11 @@ import com.datatorrent.bufferserver.packet.Tuple;
 import com.datatorrent.bufferserver.storage.Storage;
 import com.datatorrent.common.util.NameableThreadFactory;
 import com.datatorrent.netlet.AbstractLengthPrependerClient;
+import com.datatorrent.netlet.AbstractReadOnlyLengthPrependerClient;
 import com.datatorrent.netlet.DefaultEventLoop;
 import com.datatorrent.netlet.EventLoop;
 import com.datatorrent.netlet.Listener.ServerListener;
+import com.datatorrent.netlet.WriteOnlyLengthPrependerClient;
 import com.datatorrent.netlet.util.VarInt;
 
 /**
@@ -170,8 +172,8 @@ public class Server implements ServerListener
 
   private final ConcurrentHashMap<String, DataList> publisherBuffers = new ConcurrentHashMap<>(1, 0.75f, 1);
   private final ConcurrentHashMap<String, LogicalNode> subscriberGroups = new ConcurrentHashMap<String, LogicalNode>();
-  private final ConcurrentHashMap<String, AbstractLengthPrependerClient> publisherChannels = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, AbstractLengthPrependerClient> subscriberChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, ClientListener> publisherChannels = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, ClientListener> subscriberChannels = new ConcurrentHashMap<>();
   private final int blockSize;
   private final int numberOfCacheBlocks;
 
@@ -214,7 +216,7 @@ public class Server implements ServerListener
     if (dl == null) {
       message = ("Invalid identifier '" + request.getIdentifier() + "'").getBytes();
     } else {
-      AbstractLengthPrependerClient channel = publisherChannels.remove(request.getIdentifier());
+      ClientListener channel = publisherChannels.remove(request.getIdentifier());
       if (channel != null) {
         eventloop.disconnect(channel);
       }
@@ -239,7 +241,7 @@ public class Server implements ServerListener
    * @return
    */
   public LogicalNode handleSubscriberRequest(SubscribeRequestTuple request,
-      final AbstractLengthPrependerClient connection)
+      final WriteOnlyLengthPrependerClient connection)
   {
     String identifier = request.getIdentifier();
     String type = request.getStreamType();
@@ -252,7 +254,7 @@ public class Server implements ServerListener
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      AbstractLengthPrependerClient previous = subscriberChannels.put(identifier, connection);
+      ClientListener previous = subscriberChannels.put(identifier, connection);
       if (previous != null) {
         eventloop.disconnect(previous);
       }
@@ -328,7 +330,7 @@ public class Server implements ServerListener
       /*
        * close previous connection with the same identifier which is guaranteed to be unique.
        */
-      AbstractLengthPrependerClient previous = publisherChannels.put(identifier, connection);
+      ClientListener previous = publisherChannels.put(identifier, connection);
       if (previous != null) {
         eventloop.disconnect(previous);
       }
@@ -449,8 +451,8 @@ public class Server implements ServerListener
           }
 
           key.attach(publisher);
-          key.interestOps(SelectionKey.OP_READ);
           publisher.registered(key);
+          publisher.connected();
 
           int len = writeOffset - readOffset - size;
           if (len > 0) {
@@ -469,7 +471,7 @@ public class Server implements ServerListener
           logger.info("Received subscriber request: {}", request);
 
           SubscribeRequestTuple subscriberRequest = (SubscribeRequestTuple)request;
-          AbstractLengthPrependerClient subscriber;
+          WriteOnlyLengthPrependerClient subscriber;
 
 //          /* for backward compatibility - set the buffer size to 16k - EXPERIMENTAL */
           int bufferSize = subscriberRequest.getBufferSize();
@@ -481,24 +483,12 @@ public class Server implements ServerListener
                 subscriberRequest.getPartitions(), bufferSize);
           } else {
             subscriber = new Subscriber(subscriberRequest.getStreamType(), subscriberRequest.getMask(),
-                subscriberRequest.getPartitions(), bufferSize)
-            {
-              @Override
-              public int readSize()
-              {
-                if (writeOffset - readOffset < 2) {
-                  return -1;
-                }
-
-                short s = buffer[readOffset++];
-                return s | (buffer[readOffset++] << 8);
-              }
-
-            };
+                subscriberRequest.getPartitions(), bufferSize);
           }
           key.attach(subscriber);
-          key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+          key.interestOps(0);
           subscriber.registered(key);
+          subscriber.connected();
 
           handleSubscriberRequest(subscriberRequest, subscriber);
           break;
@@ -528,7 +518,7 @@ public class Server implements ServerListener
 
   }
 
-  class Subscriber extends AbstractLengthPrependerClient
+  class Subscriber extends WriteOnlyLengthPrependerClient
   {
     private final String type;
     private final int mask;
@@ -536,18 +526,11 @@ public class Server implements ServerListener
 
     Subscriber(String type, int mask, int[] partitions, int bufferSize)
     {
-      super(1024, bufferSize);
+      super(128 * 1024, bufferSize);
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
-      super.write = false;
-    }
-
-    @Override
-    public void onMessage(byte[] buffer, int offset, int size)
-    {
-      logger.warn("Received data when no data is expected: {}",
-          Arrays.toString(Arrays.copyOfRange(buffer, offset, offset + size)));
+      super.isWriteEnabled = false;
     }
 
     @Override
@@ -584,7 +567,7 @@ public class Server implements ServerListener
       LogicalNode ln = subscriberGroups.get(type);
       if (ln != null) {
         if (subscriberChannels.containsValue(this)) {
-          final Iterator<Entry<String, AbstractLengthPrependerClient>> i = subscriberChannels.entrySet().iterator();
+          final Iterator<Entry<String, ClientListener>> i = subscriberChannels.entrySet().iterator();
           while (i.hasNext()) {
             if (i.next().getValue() == this) {
               i.remove();
@@ -612,14 +595,14 @@ public class Server implements ServerListener
    * this is the end on the server side which handles all the communication.
    *
    */
-  class Publisher extends SeedDataClient
+  class Publisher extends AbstractReadOnlyLengthPrependerClient
   {
     private final DataList datalist;
     boolean dirty;
 
     Publisher(DataList dl, long windowId)
     {
-      super(dl.getBuffer(windowId), dl.getPosition(), 1024);
+      super(dl.getBuffer(windowId), dl.getPosition());
       this.datalist = dl;
     }
 
@@ -809,7 +792,7 @@ public class Server implements ServerListener
        * with the same identifier as the one which just died.
        */
       if (publisherChannels.containsValue(this)) {
-        final Iterator<Entry<String, AbstractLengthPrependerClient>> i = publisherChannels.entrySet().iterator();
+        final Iterator<Entry<String, ClientListener>> i = publisherChannels.entrySet().iterator();
         while (i.hasNext()) {
           if (i.next().getValue() == this) {
             i.remove();
@@ -833,6 +816,23 @@ public class Server implements ServerListener
       }
     }
 
+    public void transferBuffer(byte[] array, int offset, int len)
+    {
+      int remainingCapacity;
+      do {
+        remainingCapacity = buffer.length - writeOffset;
+        if (len < remainingCapacity) {
+          remainingCapacity = len;
+          byteBuffer.position(writeOffset + remainingCapacity);
+        } else {
+          byteBuffer.position(buffer.length);
+        }
+        System.arraycopy(array, offset, buffer, writeOffset, remainingCapacity);
+        read(remainingCapacity);
+
+        offset += remainingCapacity;
+      } while ((len -= remainingCapacity) > 0);
+    }
   }
 
   abstract class SeedDataClient extends AbstractLengthPrependerClient
