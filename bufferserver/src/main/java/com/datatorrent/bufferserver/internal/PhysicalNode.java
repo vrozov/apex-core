@@ -22,6 +22,7 @@ package com.datatorrent.bufferserver.internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datatorrent.bufferserver.server.Server;
 import com.datatorrent.bufferserver.util.SerializedData;
 import com.datatorrent.netlet.Listener;
 import com.datatorrent.netlet.WriteOnlyLengthPrependerClient;
@@ -35,7 +36,7 @@ public class PhysicalNode
 {
   private final long starttime;
   private final WriteOnlyLengthPrependerClient client;
-  private final long processedMessageCount;
+  private long processedMessageCount;
 
   /**
    *
@@ -76,6 +77,10 @@ public class PhysicalNode
   public boolean send(SerializedData d)
   {
     if (client.send(d.buffer, d.dataOffset, d.length - (d.dataOffset - d.offset))) {
+      processedMessageCount++;
+      if (processedMessageCount % 10000000 == 0) {
+        logger.info("Max position {}", ((Server.Subscriber)client).position);
+      }
       return true;
     }
     blocker = d;
