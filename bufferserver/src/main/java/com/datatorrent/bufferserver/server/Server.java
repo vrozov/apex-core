@@ -314,6 +314,32 @@ public class Server implements ServerListener
     return ln;
   }
 
+  private void teardownSubscriber(Subscriber subscriber)
+  {
+    LogicalNode ln = subscriberGroups.get(subscriber.type);
+    if (ln != null) {
+      if (subscriberChannels.containsValue(subscriber)) {
+        final Iterator<Entry<String, ClientListener>> i = subscriberChannels.entrySet().iterator();
+        while (i.hasNext()) {
+          if (i.next().getValue() == subscriber) {
+            i.remove();
+            break;
+          }
+        }
+      }
+
+      ln.removeChannel(subscriber);
+      if (ln.getPhysicalNodeCount() == 0) {
+        DataList dl = publisherBuffers.get(ln.getUpstream());
+        if (dl != null) {
+          dl.removeDataListener(ln);
+        }
+        subscriberGroups.remove(ln.getGroup());
+      }
+      ln.getIterator().close();
+    }
+  }
+
   /**
    *
    * @param request
@@ -479,10 +505,10 @@ public class Server implements ServerListener
 //            bufferSize = 16 * 1024;
 //          }
           if (subscriberRequest.getVersion().equals(Tuple.FAST_VERSION)) {
-            subscriber = new Subscriber(subscriberRequest.getStreamType(), subscriberRequest.getMask(),
+            subscriber = new Subscriber(Server.this, subscriberRequest.getStreamType(), subscriberRequest.getMask(),
                 subscriberRequest.getPartitions(), bufferSize);
           } else {
-            subscriber = new Subscriber(subscriberRequest.getStreamType(), subscriberRequest.getMask(),
+            subscriber = new Subscriber(Server.this, subscriberRequest.getStreamType(), subscriberRequest.getMask(),
                 subscriberRequest.getPartitions(), bufferSize);
           }
           key.attach(subscriber);
@@ -518,19 +544,31 @@ public class Server implements ServerListener
 
   }
 
-  class Subscriber extends WriteOnlyLengthPrependerClient
+  public static class Subscriber extends WriteOnlyLengthPrependerClient
   {
     private final String type;
     private final int mask;
     private final int[] partitions;
+    public int position = 0;
+    private final Server server;
 
-    Subscriber(String type, int mask, int[] partitions, int bufferSize)
+    Subscriber(Server server, String type, int mask, int[] partitions, int bufferSize)
     {
-      super(128 * 1024, 128 * 1024);
+      super(1024 * 1024, 512 * 1024);
+      this.server = server;
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
       super.isWriteEnabled = false;
+    }
+
+    @Override
+    protected int channelWrite() throws IOException
+    {
+      if (writeBuffer.position() > position) {
+        position = writeBuffer.position();
+      }
+      return super.channelWrite();
     }
 
     @Override
@@ -563,29 +601,7 @@ public class Server implements ServerListener
         return;
       }
       torndown = true;
-
-      LogicalNode ln = subscriberGroups.get(type);
-      if (ln != null) {
-        if (subscriberChannels.containsValue(this)) {
-          final Iterator<Entry<String, ClientListener>> i = subscriberChannels.entrySet().iterator();
-          while (i.hasNext()) {
-            if (i.next().getValue() == this) {
-              i.remove();
-              break;
-            }
-          }
-        }
-
-        ln.removeChannel(this);
-        if (ln.getPhysicalNodeCount() == 0) {
-          DataList dl = publisherBuffers.get(ln.getUpstream());
-          if (dl != null) {
-            dl.removeDataListener(ln);
-          }
-          subscriberGroups.remove(ln.getGroup());
-        }
-        ln.getIterator().close();
-      }
+      server.teardownSubscriber(this);
     }
 
   }
