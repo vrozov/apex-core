@@ -79,7 +79,9 @@ public class PhysicalNode
     if (client.send(d.buffer, d.dataOffset, d.length - (d.dataOffset - d.offset))) {
       processedMessageCount++;
       if (processedMessageCount % 10000000 == 0) {
-        logger.info("Max position {}", ((Server.Subscriber)client).position);
+        logger.info("Max position {} queue size {}", ((Server.Subscriber)client).position, ((Server.Subscriber)client).size);
+        ((Server.Subscriber)client).position = 0;
+        ((Server.Subscriber)client).size = 0;
       }
       return true;
     }

@@ -42,7 +42,7 @@ public abstract class Subscriber extends AuthClient
 
   public Subscriber(String id)
   {
-    super(64 * 1024, 1024);
+    super(1024 * 1024, 1);
     this.id = id;
   }
 

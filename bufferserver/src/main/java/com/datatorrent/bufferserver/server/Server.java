@@ -550,16 +550,27 @@ public class Server implements ServerListener
     private final int mask;
     private final int[] partitions;
     public int position = 0;
+    public int size = 0;
     private final Server server;
 
     Subscriber(Server server, String type, int mask, int[] partitions, int bufferSize)
     {
-      super(1024 * 1024, 512 * 1024);
+      super(1024 * 1024, 256 * 1024);
       this.server = server;
       this.type = type;
       this.mask = mask;
       this.partitions = partitions;
       super.isWriteEnabled = false;
+    }
+
+    @Override
+    public void write() throws IOException
+    {
+      final int size = sendQueue.size();
+      if (size > this.size) {
+        this.size = size;
+      }
+      super.write();
     }
 
     @Override
