@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
+
 import com.datatorrent.bufferserver.packet.BeginWindowTuple;
 import com.datatorrent.bufferserver.packet.MessageType;
 import com.datatorrent.bufferserver.packet.ResetWindowTuple;
@@ -359,6 +361,7 @@ public class DataList
 
       set.add(dl);
     }
+    listenersNotifier.run();
   }
 
   public void removeDataListener(DataListener dl)
@@ -504,7 +507,7 @@ public class DataList
   @Override
   public String toString()
   {
-    return getClass().getName() + '@' + Integer.toHexString(hashCode()) + " {" + identifier + '}';
+    return new ToStringBuilder(this).append("identifier", identifier).toString();
   }
 
   /**
@@ -1108,22 +1111,33 @@ public class DataList
     @Override
     public void run()
     {
+      logger.debug("{}: running {}", DataList.this, this);
       try {
         if (addedData() || checkIfListenersHaveDataToSendOnly()) {
           future = autoFlushExecutor.submit(this);
+          logger.debug("{}: rescheduled {}", DataList.this, this);
         } else {
           synchronized (this) {
             if (isMoreDataAvailable) {
               isMoreDataAvailable = false;
               future = autoFlushExecutor.submit(this);
+              logger.debug("{}: rescheduled {}", DataList.this, this);
             } else {
               future = null;
             }
           }
         }
       } catch (Exception e) {
-        logger.error("{}", DataList.this, e);
+        logger.debug("{}: {}", DataList.this, this, e);
+      } finally {
+        logger.debug("{}: finished {}", this);
       }
+    }
+
+    @Override
+    public String toString()
+    {
+      return new ToStringBuilder(this).append("future", future).append("isMoreDataAvailable", isMoreDataAvailable).toString();
     }
   }
 
