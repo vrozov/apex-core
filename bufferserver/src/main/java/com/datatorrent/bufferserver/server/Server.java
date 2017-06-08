@@ -31,7 +31,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +49,8 @@ import com.datatorrent.bufferserver.packet.SubscribeRequestTuple;
 import com.datatorrent.bufferserver.packet.Tuple;
 import com.datatorrent.bufferserver.storage.Storage;
 import com.datatorrent.common.util.NameableThreadFactory;
+import com.datatorrent.common.util.ScheduledExecutorService;
+import com.datatorrent.common.util.ScheduledThreadPoolExecutor;
 import com.datatorrent.netlet.AbstractLengthPrependerClient;
 import com.datatorrent.netlet.AbstractServer;
 import com.datatorrent.netlet.DefaultEventLoop;
@@ -71,7 +72,7 @@ public class Server extends AbstractServer
   private String identity;
   private Storage storage;
   private final EventLoop eventloop;
-  private final ExecutorService serverHelperExecutor;
+  private final ScheduledExecutorService serverHelperExecutor;
   private final ExecutorService storageHelperExecutor;
   private volatile CountDownLatch latch;
 
@@ -93,7 +94,7 @@ public class Server extends AbstractServer
     this.port = port;
     this.blockSize = blocksize;
     this.numberOfCacheBlocks = numberOfCacheBlocks;
-    serverHelperExecutor = Executors.newSingleThreadExecutor(new NameableThreadFactory("ServerHelper"));
+    serverHelperExecutor = new ScheduledThreadPoolExecutor(1, "ServerHelper");
     final ArrayBlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(numberOfCacheBlocks);
     final NameableThreadFactory threadFactory = new NameableThreadFactory("StorageHelper");
     storageHelperExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, workQueue, threadFactory,

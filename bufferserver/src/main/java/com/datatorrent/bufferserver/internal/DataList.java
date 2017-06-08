@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ import com.datatorrent.bufferserver.util.BitVector;
 import com.datatorrent.bufferserver.util.Codec;
 import com.datatorrent.bufferserver.util.SerializedData;
 import com.datatorrent.bufferserver.util.VarInt;
+import com.datatorrent.common.util.ScheduledExecutorService;
 import com.datatorrent.netlet.AbstractClient;
 import com.datatorrent.netlet.util.VarInt.MutableInt;
 
@@ -65,7 +67,7 @@ public class DataList
   protected Block first;
   protected Block last;
   protected Storage storage;
-  protected ExecutorService autoFlushExecutor;
+  protected ScheduledExecutorService autoFlushExecutor;
   protected ExecutorService storageExecutor;
   protected int size;
   protected int processingOffset;
@@ -296,9 +298,10 @@ public class DataList
     listenersNotifier.moreDataAvailable();
   }
 
-  public void setAutoFlushExecutor(final ExecutorService es)
+  public void setAutoFlushExecutor(final ScheduledExecutorService es)
   {
     autoFlushExecutor = es;
+    autoFlushExecutor.scheduleWithFixedDelay(listenersNotifier, 0, 500, TimeUnit.MILLISECONDS);
   }
 
   public void setSecondaryStorage(Storage storage, ExecutorService es)

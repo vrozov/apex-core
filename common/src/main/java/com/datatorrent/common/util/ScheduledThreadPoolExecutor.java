@@ -35,6 +35,7 @@ public class ScheduledThreadPoolExecutor extends java.util.concurrent.ScheduledT
   public ScheduledThreadPoolExecutor(int corePoolSize, String executorName)
   {
     super(corePoolSize, new NameableThreadFactory(executorName));
+    setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
   }
 
   /**
