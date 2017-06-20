@@ -30,8 +30,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -329,8 +331,9 @@ public class Server extends AbstractServer
    */
   private void handleSubscriberRequest(final SubscribeRequestTuple request, final SelectionKey key)
   {
+    boolean disconnect = true;
     try {
-      serverHelperExecutor.submit(new Runnable()
+      Future<?> future = serverHelperExecutor.submit(new Runnable()
       {
         @Override
         public void run()
@@ -382,9 +385,17 @@ public class Server extends AbstractServer
           });
         }
       });
+      future.get();
+      disconnect = false;
     } catch (RejectedExecutionException e) {
-      logger.error("Received subscriber request {} after server {} termination. Disconnecting {}.", request, this, key.channel(), e);
-      if (key.isValid()) {
+      logger.error("Received subscriber request {} after server {} termination.", request, this, e);
+    } catch (InterruptedException e) {
+      logger.error("Subscriber request {} interrupted.", request, e);
+    } catch (ExecutionException e) {
+      logger.error("Exception while handling subscriber request {}", e.getCause());
+    } finally {
+      if (disconnect && key.isValid()) {
+        logger.info("Disconnecting subscriber channel {}", key.channel());
         try {
           key.channel().close();
         } catch (IOException ioe) {
@@ -399,28 +410,24 @@ public class Server extends AbstractServer
     try {
       final Subscriber subscriber = (Subscriber)key.attachment();
       if (subscriber != null) {
-        serverHelperExecutor.submit(new Runnable()
+        Future<?> future = serverHelperExecutor.submit(new Runnable()
         {
           @Override
           public void run()
           {
-            try {
-              final LogicalNode ln = subscriber.ln;
-              if (ln != null) {
-                ln.removeChannel(subscriber);
-                if (ln.getPhysicalNodeCount() == 0) {
-                  DataList dl = publisherBuffers.get(ln.getUpstream());
-                  if (dl != null) {
-                    logger.info("Removing ln {} from dl {}", ln, dl);
-                    dl.removeDataListener(ln);
-                  }
-                  subscriberGroups.remove(ln.getGroup(), ln);
-                  ln.getIterator().close();
+            final LogicalNode ln = subscriber.ln;
+            if (ln != null) {
+              ln.removeChannel(subscriber);
+              if (ln.getPhysicalNodeCount() == 0) {
+                DataList dl = publisherBuffers.get(ln.getUpstream());
+                if (dl != null) {
+                  logger.info("Removing ln {} from dl {}", ln, dl);
+                  dl.removeDataListener(ln);
                 }
-                subscriber.ln = null;
+                subscriberGroups.remove(ln.getGroup(), ln);
+                ln.getIterator().close();
               }
-            } catch (Throwable t) {
-              logger.error("Buffer server {} failed to tear down subscriber {}.", Server.this, subscriber, t);
+              subscriber.ln = null;
             }
           }
 
@@ -430,6 +437,7 @@ public class Server extends AbstractServer
             return subscriber + " teardown task.";
           }
         });
+        future.get();
       } else {
         logger.error("Selection key {} has unexpected attachment {}.", key, key.attachment());
       }
@@ -437,6 +445,10 @@ public class Server extends AbstractServer
       logger.error("Selection key {} has unexpected attachment {}.", key, key.attachment());
     } catch (RejectedExecutionException e) {
       logger.error("Subscriber {} teardown after server {} termination.", key.attachment(), this, e);
+    } catch (InterruptedException e) {
+      logger.error("Subscriber {} teardown request interrupted.", key.attachment(), e);
+    } catch (ExecutionException e) {
+      logger.error("Exception during subscriber {} teardown.", key.attachment(), e.getCause());
     }
   }
 

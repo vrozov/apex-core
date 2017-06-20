@@ -30,7 +30,7 @@
 
   <groupId>org.apache.apex</groupId>
   <artifactId>apex</artifactId>
-  <version>3.6.0-rts3.8.1</version>
+  <version>3.6.0-rts3.8.1-DEBUG</version>
   <packaging>pom</packaging>
 
   <name>Apache Apex</name>
